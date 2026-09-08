@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from backend.factlayer import db
 from backend.factlayer.api import app
+from backend.factlayer.config import settings
 from backend.factlayer.ingest import ingest
 from backend.factlayer.model import ModelUnavailable
 from backend.factlayer.worker import claim_job, process
@@ -72,3 +73,13 @@ def test_resume_only_partial_jobs():
         assert client.post(f'/api/jobs/{r["job_id"]}/resume').status_code == 409
         db.execute("UPDATE jobs SET status='partial' WHERE id=?", (r['job_id'],))
         assert client.post(f'/api/jobs/{r["job_id"]}/resume').json()['status'] == 'queued'
+
+
+def test_upload_rate_limit_is_actionable(monkeypatch):
+    monkeypatch.setattr(settings, 'upload_rate_limit', 1)
+    with TestClient(app) as client:
+        cid = collection()
+        assert client.post(f'/api/collections/{cid}/documents', files={'file': ('one.pdf', pdf_bytes())}).status_code == 202
+        response = client.post(f'/api/collections/{cid}/documents', files={'file': ('two.pdf', pdf_bytes())})
+        assert response.status_code == 429
+        assert 'Too many upload requests' in response.json()['detail']

@@ -3,7 +3,7 @@ import json
 import time
 
 from . import db
-from .compare import candidates, compare, key
+from .compare import candidates, compare, key, pair_eligible
 from .config import PIPELINE_VERSION, settings
 from .model import chat_json
 
@@ -74,11 +74,14 @@ def reconcile(collection_id):
     pending, seen = [], set()
     for row in facts:
         a = json.loads(row['data'])
+        a['document_id'] = row['document_id']
         for b in candidates(a, collection_id):
             ids = tuple(sorted([row['id'], b['id']]))
             if ids[0] == ids[1] or ids in seen:
                 continue
             seen.add(ids)
+            if not pair_eligible(a, b):
+                continue
             if key(a.get('canonical_predicate', a['predicate'])) != key(b.get('canonical_predicate', b['predicate'])):
                 continue
             left, right = (a, b) if ids[0] == row['id'] else (b, a)

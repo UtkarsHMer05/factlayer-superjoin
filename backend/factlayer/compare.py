@@ -93,6 +93,23 @@ def compare(a, b, aligned=False):
     return result
 
 
+def pair_eligible(a, b):
+    """Avoid turning a dated series inside one PDF into a dense relationship graph.
+
+    Cross-document claims remain candidates because they can corroborate, conflict,
+    or describe a revision. Within one document, rows with distinct explicit time
+    anchors are separate events rather than an apparent contradiction. Timeless
+    assertions remain candidates (for example, two address disclosures), as do
+    claims with the same supported period or as-of date.
+    """
+    if a.get('document_id') != b.get('document_id'):
+        return True
+    left, right = a.get('context', {}), b.get('context', {})
+    anchors = [(left.get(name), right.get(name)) for name in ('period', 'as_of')]
+    known = [(x, y) for x, y in anchors if x or y]
+    return not known or all(x and y and x == y for x, y in known)
+
+
 def candidates(claim, collection_id, limit=30):
     # Exact subject blocks are intentional: aliases must be supported, not guessed.
     import json
@@ -102,7 +119,7 @@ def candidates(claim, collection_id, limit=30):
                         WHERE claim_search MATCH ? AND c.collection_id=? AND c.subject=?
                         AND c.status='accepted' ORDER BY rank LIMIT ?''',
                     (query or '"none"', collection_id, key(claim['subject']), limit))
-    return [dict(json.loads(r['data']), id=r['id']) for r in found]
+    return [dict(json.loads(r['data']), id=r['id'], document_id=r['document_id']) for r in found]
 
 
 def relate_document(doc_id):
@@ -111,8 +128,11 @@ def relate_document(doc_id):
     count = 0
     for row in new:
         a = json.loads(row['data'])
+        a['document_id'] = row['document_id']
         for b in candidates(a, row['collection_id']):
             if b['id'] == row['id']:
+                continue
+            if not pair_eligible(a, b):
                 continue
             left, right = sorted([row['id'], b['id']])
             if db.one('SELECT id FROM relationships WHERE left_id=? AND right_id=?', (left, right)):

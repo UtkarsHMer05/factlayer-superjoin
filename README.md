@@ -4,7 +4,7 @@
 
 A PDF Fact Knowledge Layer for the Superjoin assignment: upload documents, inspect extracted assertions at their source locations, and compare evidence with explicit uncertainty.
 
-**Status: working local prototype; not submission-ready.** Native setup, the React build, and 36 automated tests pass. All six starter PDFs (511 pages) have been parsed. Actual saved pilot results contain 52 accepted and 114 quarantined claims. The fresh TokenRouter pilot, the four required demonstration cases, public deployment, and final video remain incomplete. See [CONTINUATION.md](CONTINUATION.md).
+**Status: working local prototype; not submission-ready.** Native setup, the React build, and 51 automated tests pass. All six starter PDFs (511 pages) have been parsed. Actual saved pilot results contain 52 accepted and 114 quarantined claims, plus two current deterministic relationship results recomputed from those unchanged, evidence-backed claims. The live TokenRouter adapter now uses GLM's documented top-level thinking control and fails fast while preserving parsed evidence. A fresh bounded smoke test on September 8, 2026 reached the configured model but received HTTP 429 (provider rate limit), so the fresh pilot, four corpus demonstrations, public deployment, and final video remain incomplete. See [CONTINUATION.md](CONTINUATION.md).
 
 ## Setup and Run Instructions
 
@@ -19,7 +19,13 @@ make dev
 
 Open [FactLayer](http://127.0.0.1:8017) or the [API reference](http://127.0.0.1:8017/docs). The development command starts both API and worker. For frontend hot reload, separately run `npm run dev --prefix frontend`.
 
-The requested provider is `https://api.tokenrouter.com/v1`, model `z-ai/glm-5.3-free`. A nonempty `FACT_API_KEY` selects the OpenAI-compatible adapter. An earlier real smoke request succeeded; later small and full extraction requests were slow or timed out. Low reasoning effort and a bounded output limit are configured. The model's [official API reference](https://docs.z.ai/api-reference/llm/chat-completion) documents GLM-5.3's effort control; actual TokenRouter behavior still needs successful full-run validation. No provider fallback happens silently.
+If the port is already in use, FactLayer is already running there; open it in the browser instead of starting a second copy. To run an isolated no-model preview beside it, use an unused port, for example:
+
+```sh
+PORT=8020 FACT_DATA_DIR=data/qa-saved FACT_SAMPLE_MODE=true uv run python -m scripts.dev
+```
+
+The requested provider is `https://api.tokenrouter.com/v1`, model `z-ai/glm-5.3-free`. A nonempty `FACT_API_KEY` selects the OpenAI-compatible adapter. The adapter sends `thinking: {"type":"disabled"}` at the documented top level so small structured extraction calls do not spend their complete output budget on hidden reasoning. It uses a bounded streaming idle timeout and records HTTP 429 as a resumable provider-rate-limit failure; it never switches models silently. The model's [official API reference](https://docs.z.ai/api-reference/llm/chat-completion) documents this thinking control. The current provider quota must reset before a fresh full-run validation is possible.
 
 For optional Ollama use, clear `FACT_API_KEY` and set `FACT_MODEL` and `FACT_MODEL_URL` to an accessible Ollama model/base URL. The archived pilot used `gpt-oss:120b-cloud`; it is not represented as a TokenRouter result.
 
@@ -46,7 +52,7 @@ FACT_DATA_DIR=data/saved FACT_SAMPLE_MODE=true uv run python -m scripts.import_s
 FACT_DATA_DIR=data/saved FACT_SAMPLE_MODE=true uv run python -m scripts.dev
 ```
 
-The UI labels saved mode, disables upload/resume, and shows original extraction coverage. Exports are development outputs with known limitations, not a gold dataset. All original PDFs remain inspectable. The compressed exports include their actual model runs and evidence. Re-importing into an existing collection is rejected.
+The UI labels saved mode, disables upload/resume, and shows original extraction coverage. Exports are development outputs with known limitations, not a gold dataset. All original PDFs remain inspectable. The compressed exports retain their actual model runs and evidence; the Delhivery export additionally includes two deterministic comparisons recomputed from the restored claims (one scope reconciliation and one insufficient-context result), not new model output. Re-importing into an existing collection is rejected.
 
 Container setup and honest build/deployment status are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -68,13 +74,13 @@ AI tools used: Codex for planning/implementation/debugging; Ollama-hosted gpt-os
 
 ## Limitations and Next Steps
 
-- The four required corpus demonstrations are not yet validated; saved outputs currently have no relationships. Controlled comparison tests do not establish corpus accuracy.
+- The four required corpus demonstrations are not yet validated. Saved outputs include only two deterministic relationships, which do not establish corpus accuracy or satisfy the required four-case demo.
 - No OCR/vision or reconstructed table-cell fallback. Charts and complex tables may be quarantined or omitted. The same model performs extraction and semantic verification, so errors may repeat.
-- TokenRouter full extraction remains unverified. Requests have timeouts and per-job accounting, including retries/repairs. Token caps are stop thresholds between calls; a final response can exceed the threshold. Unknown usage after network failure cannot be measured locally.
+- TokenRouter full extraction remains unverified: the latest bounded smoke request reached the endpoint but was rate-limited (HTTP 429). Requests have bounded streaming-idle timeouts and per-job accounting, including retries/repairs. Token caps are stop thresholds between calls; a final response can exceed the threshold. Unknown usage after network failure cannot be measured locally.
 - Semantic alignment has bounded batches and strict observed-label checks, but needs accuracy review and improved cache/budget handling for standalone CLI use.
 - Desktop source highlighting and restored sample browsing were checked. A full mobile/accessibility and live-upload acceptance pass remains.
-- Docker builds were blocked downloading base images. No host account, public URL, final video, or hiring-form submission has been completed.
-- Shared-workspace deployment lacks authentication, tenant isolation, and public admission/rate limits; see deployment notes before unrestricted public use.
+- The current Docker image builds and an isolated container has returned a successful health response. No host account, public URL, final video, or hiring-form submission has been completed.
+- Shared-workspace deployment has lightweight in-process upload/resume limits, but still lacks authentication, tenant isolation, and durable distributed abuse controls; see deployment notes before unrestricted public use.
 
 ## Additional Notes
 

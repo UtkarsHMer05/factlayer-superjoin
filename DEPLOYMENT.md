@@ -12,9 +12,9 @@ docker compose up --build -d
 
 Open http://localhost:8017. Compose mounts a persistent named volume at `/data`. The image runs as UID 10001; host-mounted disks must be writable by this user. The container launches one API and one worker, and exits if either fails. Do not run multiple replicas against separate SQLite files. Back up the whole data directory with the service stopped, or use SQLite's backup API plus a copy of PDFs.
 
-The Dockerfile builds the frontend, installs locked Python dependencies, and serves the frontend through FastAPI. It never copies `.env`, local data, or source archives. `HOST`, `PORT`, and `FACT_DATA_DIR` are configurable. Configure `FACT_MODEL=z-ai/glm-5.3-free`, `FACT_MODEL_URL=https://api.tokenrouter.com/v1`, and `FACT_API_KEY` through the host's secret manager. Never use `VITE_` for credentials.
+The Dockerfile builds the frontend, installs locked Python dependencies, and serves the frontend through FastAPI. It never copies `.env`, local data, or source archives. `HOST`, `PORT`, and `FACT_DATA_DIR` are configurable. Configure `FACT_MODEL=z-ai/glm-5.3-free`, `FACT_MODEL_URL=https://api.tokenrouter.com/v1`, and `FACT_API_KEY` through the host's secret manager. Never use `VITE_` for credentials. Keep the default server-side shared-workspace admission limits (`FACT_UPLOAD_RATE_LIMIT=5`, `FACT_RESUME_RATE_LIMIT=6`, `FACT_RATE_LIMIT_WINDOW_SECONDS=60`) unless the host already supplies an equivalent authenticated gateway.
 
-Local Docker builds were attempted twice on September 8, 2026. Both stopped while downloading base-image metadata (`context deadline exceeded`), before application build execution. Container execution is therefore **not verified**. Native setup, tests, frontend build, and local API/browser execution do work.
+An up-to-date Docker image built successfully on September 8, 2026, and an isolated saved-mode container returned `200` from `/api/health`. This verifies the image build and basic runtime health; it does not validate live provider extraction, persistent-volume survival, or a public deployment. Native setup, tests, frontend build, and local API/browser execution also work.
 
 ## Hosted service checklist
 
@@ -25,6 +25,6 @@ Local Docker builds were attempted twice on September 8, 2026. Both stopped whil
 5. Restart the service and confirm the same collection and source PDF survive.
 6. Open the public URL from a separate session and repeat the judge workflow before sharing it as ready.
 
-This prototype has a shared workspace: all visitors can see collections and uploaded PDFs. It has no user authentication or tenant isolation. Use public demonstration documents only. Per-job request/token caps limit each job; there is no global public-user spending/rate limit. Add host access control and admission/rate limits before opening unrestricted uploads to the internet.
+This prototype has a shared workspace: all visitors can see collections and uploaded PDFs. It has no user authentication or tenant isolation. Use public demonstration documents only. Per-job request/token caps limit each job, and the API has a lightweight per-client upload/resume admission limit. Add host access control, an authenticated gateway, and durable distributed limits before opening unrestricted uploads to the internet.
 
 No public deployment URL exists yet. An authenticated hosting destination is still needed. The requested TokenRouter model also needs a successful full extraction run; recent requests timed out despite an earlier successful connectivity check.

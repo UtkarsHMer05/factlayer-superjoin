@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pymupdf
-from fastapi import FastAPI, HTTPException, Query, UploadFile
+from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from . import db
 from .config import PIPELINE_VERSION, settings
 from .ingest import ingest
+from .limits import limiter
 
 
 @asynccontextmanager
@@ -28,6 +29,12 @@ def required(sql, args):
     if row is None:
         raise HTTPException(404, 'Resource not found')
     return row
+
+
+def guard_expensive_action(request: Request, scope: str, limit: int):
+    client = request.client.host if request.client else 'unknown-client'
+    if not limiter.allowed(scope, client, limit, settings.rate_limit_window_seconds):
+        raise HTTPException(429, f'Too many {scope} requests. Wait a minute and try again.')
 
 
 class CollectionInput(BaseModel):
@@ -59,9 +66,10 @@ def collections():
 
 
 @app.post('/api/collections/{cid}/documents', status_code=202)
-async def upload(cid: str, file: UploadFile):
+async def upload(cid: str, request: Request, file: UploadFile):
     if settings.sample_mode:
         raise HTTPException(403, 'Saved-results mode: uploads are disabled')
+    guard_expensive_action(request, 'upload', settings.upload_rate_limit)
     chunks, total = [], 0
     while chunk := await file.read(1024 * 1024):
         total += len(chunk)
@@ -90,9 +98,10 @@ def job(jid: str):
 
 
 @app.post('/api/jobs/{jid}/resume')
-def resume(jid: str):
+def resume(jid: str, request: Request):
     if settings.sample_mode:
         raise HTTPException(403, 'Saved-results mode: processing is disabled')
+    guard_expensive_action(request, 'resume', settings.resume_rate_limit)
     old = required('SELECT * FROM jobs WHERE id=?', (jid,))
     if old['status'] not in ('partial', 'failed'):
         raise HTTPException(409, 'Only partial or failed jobs can resume')

@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 
-from backend.factlayer.compare import compare, numeric
+from backend.factlayer.compare import compare, numeric, pair_eligible
 
 
 def claim(number='100', **value):
@@ -97,3 +97,21 @@ def test_negating_one_value_does_not_contradict_another():
     a, b = claim('100'), claim('120')
     a['polarity'] = 'negative'
     assert compare(a, b)['label'] == 'insufficient_context'
+
+
+def test_same_document_dated_series_is_not_a_relationship_candidate():
+    a, b = claim(), claim('120')
+    a.update(document_id='same')
+    b.update(document_id='same')
+    a['context']['as_of'] = '2024-01-01'
+    b['context']['as_of'] = '2024-02-01'
+    assert not pair_eligible(a, b)
+
+
+def test_cross_document_dates_remain_comparison_candidates():
+    a, b = claim(), claim('120')
+    a.update(document_id='left')
+    b.update(document_id='right')
+    a['context']['as_of'] = '2024-01-01'
+    b['context']['as_of'] = '2024-02-01'
+    assert pair_eligible(a, b)
