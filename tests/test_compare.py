@@ -87,3 +87,13 @@ def test_data_discovered_alias():
     b['predicate'] = 'turnover'
     b['canonical_predicate'] = 'revenue'
     assert compare(a, b)['label'] == 'corroborates'
+
+
+def test_basis_point_rounding_uses_converted_precision():
+    assert compare(claim('100', unit='bps'), claim('101', unit='bps'))['label'] == 'contradicts'
+
+
+def test_negating_one_value_does_not_contradict_another():
+    a, b = claim('100'), claim('120')
+    a['polarity'] = 'negative'
+    assert compare(a, b)['label'] == 'insufficient_context'

@@ -1,0 +1,15 @@
+services:
+  factlayer:
+    build: .
+    ports:
+      - "8017:8017"
+    env_file: .env
+    environment:
+      FACT_DATA_DIR: /data
+      HOST: 0.0.0.0
+      PORT: 8017
+    volumes:
+      - factlayer-data:/data
+    restart: unless-stopped
+volumes:
+  factlayer-data:

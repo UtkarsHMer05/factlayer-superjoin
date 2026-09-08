@@ -11,12 +11,14 @@ class Settings(BaseSettings):
     # Empty key selects local Ollama; a key selects any OpenAI-compatible endpoint.
     api_key: str = ''
     request_timeout: int = 180
+    reasoning_effort: str = "low"
+    max_output_tokens: int = 10000
     max_requests: int = 1000
     max_tokens: int = 1000000
-    enable_ocr: bool = False
+    sample_mode: bool = False
     max_upload_mb: int = 50
     max_pages: int = 500
 
 
 settings = Settings()
-PIPELINE_VERSION = 'layout-2.claims-2.verify-1.compare-1'
+PIPELINE_VERSION = 'layout-3.claims-3.verify-2.compare-2'

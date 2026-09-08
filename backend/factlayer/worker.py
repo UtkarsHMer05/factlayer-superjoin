@@ -9,8 +9,8 @@ import pymupdf
 
 from . import db
 from .compare import key, relate_document
-from .config import settings
-from .model import ModelUnavailable, extract, verify
+from .config import PIPELINE_VERSION, settings
+from .model import ModelUnavailable, extract, job_context, verify
 from .pdf import ground, page_units
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def claim_job(owner):
 
 
 def persist_claim(doc, page, candidate, units, verification=None):
-    claim_id = hashlib.sha256((doc['id'] + str(page) + candidate.model_dump_json()).encode()).hexdigest()[:32]
+    claim_id = hashlib.sha256((PIPELINE_VERSION + settings.model + doc['id'] + str(page) + candidate.model_dump_json()).encode()).hexdigest()[:32]
     if db.one('SELECT id FROM claims WHERE id=?', (claim_id,)):
         return
     try:
@@ -43,6 +43,8 @@ def persist_claim(doc, page, candidate, units, verification=None):
         data['rejection'] = str(exc)
         db.failure(doc['id'], page, 'grounding', str(exc), {'claim_id': claim_id, 'assertion': candidate.assertion})
     data['id'] = claim_id
+    data['model'] = settings.model
+    data['pipeline_version'] = PIPELINE_VERSION
     with db.connect() as c:
         c.execute('INSERT INTO claims VALUES(?,?,?,?,?,?,?,?)',
                   (claim_id, doc['id'], doc['collection_id'], page, key(candidate.subject), key(candidate.predicate), status, db.dumps(data)))
@@ -59,6 +61,7 @@ def process(job, owner):
     selected = set(options.get('pages', []))
     metadata = json.loads(doc['metadata'])
     stopped = threading.Event()
+    budget_context = job_context.set(job['id'])
 
     def heartbeat():
         while not stopped.wait(20):
@@ -99,6 +102,8 @@ def process(job, owner):
                     if not units:
                         db.execute("UPDATE pages SET status='empty' WHERE document_id=? AND number=?", (doc['id'], number))
                         continue
+                    usage = db.one('SELECT requests,tokens FROM jobs WHERE id=?', (job['id'],))
+                    requests, tokens = usage['requests'], usage['tokens']
                     if blocked or (settings.max_requests and requests >= settings.max_requests) or (settings.max_tokens and tokens >= settings.max_tokens):
                         partial = True
                         continue
@@ -126,7 +131,7 @@ def process(job, owner):
                             db.execute('UPDATE documents SET metadata=? WHERE id=?', (db.dumps({'title': output.title, 'subject': output.subject}), doc['id']))
                     else:
                         db.execute("UPDATE pages SET status='extracted' WHERE document_id=? AND number=?", (doc['id'], number))
-                    db.execute('UPDATE jobs SET requests=?,tokens=? WHERE id=?', (requests, tokens, job['id']))
+
                 except ModelUnavailable as exc:
                     db.failure(doc['id'], number, 'model_access', str(exc))
                     blocked = True
@@ -140,6 +145,15 @@ def process(job, owner):
                     db.execute('UPDATE jobs SET progress=?,updated=? WHERE id=?', (processed, time.time(), job['id']))
         db.execute("UPDATE jobs SET status='comparing' WHERE id=?", (job['id'],))
         relate_document(doc['id'])
+        waiting = db.one("SELECT j.id FROM jobs j JOIN documents d ON d.id=j.document_id WHERE d.collection_id=? AND j.id!=? AND j.status IN ('queued','parsing','extracting','comparing') LIMIT 1", (doc['collection_id'], job['id']))
+        if not blocked and not waiting:
+            try:
+                from .alignment import reconcile
+                reconcile(doc['collection_id'])
+            except Exception as exc:
+                log.exception('Semantic comparison failed')
+                db.failure(doc['id'], None, 'comparison', str(exc)[:500])
+                partial = True
         status = 'partial' if partial else 'completed'
         message = ('Model unavailable; source parsing completed. Configure access and resume.' if blocked else
                    'Selected pages or budget limit; remaining pages are available to resume.' if partial else 'Processing complete.')
@@ -148,6 +162,7 @@ def process(job, owner):
         db.execute('UPDATE documents SET status=? WHERE id=?', (status, doc['id']))
     finally:
         stopped.set()
+        job_context.reset(budget_context)
 
 
 def main():

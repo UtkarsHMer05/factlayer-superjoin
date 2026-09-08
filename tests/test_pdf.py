@@ -95,3 +95,17 @@ def test_spread_detected_with_two_footer_labels():
 def test_untrusted_unit_id_rejected():
     with pytest.raises(ValueError, match='unknown unit'):
         locate(Anchor(unit_id='invented', quote='100'), [])
+
+
+def test_rotated_source_uses_same_unrotated_viewer_space():
+    import pymupdf
+
+    from backend.factlayer.pdf import page_units
+    with pymupdf.open() as pdf:
+        page = pdf.new_page(width=400, height=600)
+        page.insert_text((40, 60), 'Example source assertion')
+        page.set_rotation(90)
+        parsed = page_units(page, 'rotated', 1)
+        assert (parsed['width'], parsed['height']) == (400, 600)
+        assert parsed['units'][0]['spans'][0]['box'][0] == 40
+        assert page.rotation == 0

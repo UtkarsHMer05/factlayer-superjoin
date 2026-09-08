@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+data
+*.pdf
+*.zip
+frontend/node_modules
+frontend/dist
+.venv
+output
+.playwright-cli
+__pycache__
+.pytest_cache
+.ruff_cache
+samples

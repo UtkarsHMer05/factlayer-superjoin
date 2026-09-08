@@ -1,65 +1,64 @@
-# Continue here — implementation checkpoint
+# Continue the Superjoin assignment
 
-## Latest user steering: TokenRouter and deployment
+Updated September 8, 2026. **Implementation is authorized. This is not a planning-only task.** The user asks to finish the assignment and deploy a working website judges can use. Do not ask again whether to implement. Do not submit the hiring form without specific submission authorization.
 
-The user has now authorized using their provided test API key with `https://api.tokenrouter.com/v1` and **`z-ai/glm-5.3-free`**, and wants a publicly usable deployed website. A real call through the current adapter succeeded with `{"available":true}` (97 tokens, approximately 7.9 seconds). The credential is in gitignored `.env` with filesystem mode 0600, never in this document or frontend code. The adapter now selects `/chat/completions` when FACT_API_KEY is nonempty. Existing results are still from gpt-oss; rerun the selected pilot with TokenRouter and evaluate before scaling. Deployment is now requested, but no hosting target or remote deployment exists yet. Preserve the local key and configure it as a server-side hosting secret. Do not expose it through a static site bundle. The original form submission still has not been requested explicitly.
+## Immediate state
 
-The user pasted the same new instructions twice. They are steering the same assignment, not two separate projects. The source handoff's planning-only language is superseded by explicit authorization to implement.
+Project: `/Users/utkarshkhajuria/Desktop/SUPERJOIN ASSINGMENT`.
 
-The user authorized implementation and asked for a handoff near the Codex quota boundary. At the last usage check, 89% of the five-hour allowance was consumed. This is a working foundation, **not a finished assignment**. Do not claim otherwise.
+Read this file, README.md, DEPLOYMENT.md, then ANALYSIS_AND_AGENT_HANDOFF.md and the original assignment PDF. The latter analysis contains exact requirements, source-page discoveries, and the intended four-case demo. Facts mentioned in documentation are evaluation expectations, NEVER runtime seed answers.
 
-## Current state
+The user supplied a TokenRouter key. It is already in ignored `.env` with chmod 0600. Do not print it, put it in VITE variables, commit it, or ask for it again. Exact requested model: `z-ai/glm-5.3-free`; endpoint: `https://api.tokenrouter.com/v1`. The key is authorized for this project. No silent switch to another model. An earlier tiny request returned valid JSON (97 tokens, ~8s); later tiny and full extraction requests timed out or stayed pending. A 45-second diagnostic with low effort timed out. Full requests were interrupted during handoff after retries; do not claim they completed.
 
-- Python API, React UI, SQLite/FTS5 storage, background worker with leases, upload validation/deduplication, page/region parsing, exact source highlighting, typed claims, model extraction and a second model verification pass are implemented.
-- `make setup`, `make dev`, `make test`, `make ingest`, `make export-samples` exist. API/UI use **127.0.0.1:8017**; another unrelated user process occupies port 8000. Do not kill it.
-- The API was started on 8017. The worker was deliberately stopped after jobs settled so no further model usage occurs unattended. Start with `make dev` after checking whether 8017 is already occupied by this app; or start only the worker if the API is already running.
-- Ollama was started on 11434. Existing account access to `gpt-oss:120b-cloud` worked. `glm-5:cloud` returned 410 and `glm-5.1:cloud` returned 402. Only tiny cloud manifests were pulled, no local model weights. No paid upgrade or account changes were made.
-- 29 controlled automated tests passed. Frontend TypeScript/Vite build passed. PyMuPDF/Starlette emit dependency deprecation warnings.
-- A browser opened the UI successfully and produced a DOM snapshot. One console error needs inspection (likely favicon but NOT verified). The screenshot attempt failed because the output directory did not yet exist. Full visual/keyboard/mobile verification is unfinished. Impeccable's mechanical detector ran once and returned no findings.
+Model adapter now sets `reasoning_effort=low` and `max_tokens=10000`, configurable through FACT_ settings. Z.ai's official current chat-completion docs say GLM-5.3 defaults to max effort and supports low/high/max; thinking cannot be disabled. TokenRouter forwarding still needs full-request validation. Latest code stops on read timeouts instead of retrying them three times. Other transient/invalid-JSON failures retry at most three times. API keys are kept only in Authorization headers.
 
-## Data and actual results
+There is no authenticated hosting destination yet. An async question asked whether the user will provide Render, another host, or wants the local handoff first. No answer had arrived at this checkpoint. Docker/Python with persistent disk is required. Sites is available but accepts Cloudflare-compatible JS workers/static sites, not this Python ASGI backend; do not claim a static-only deployment is the full app.
 
-- `data/knowledge.sqlite` is the current development DB; `data/pdfs/` contains all source PDFs addressed by SHA-256. `data/pilot-v1.sqlite` is an earlier backup. All are gitignored.
-- Six documents / 511 pages parsed. The selected pilot has 15 PDF pages (20 region extraction requests plus verification in the second run). Most jobs intentionally show partial status; the annual-report job showed failed because relationship insertion had seven placeholders for a six-column table. That SQL bug has been fixed but its persisted job status has not been reset/re-run.
-- After the latest safety audit: **52 accepted claims, 114 quarantined candidates**. Accepted does not imply manually proven correctness. These 52 still require evaluation. No validated relationship demonstration is complete.
-- `samples/evaluation/pilot-v1-failures.json` preserves real early failures, including PTL chart misassociation and wrong subject attribution.
-- `samples/actual-runs/*.json` are genuine exports of current partial results, page text/coordinates, runs, and failures. They contain no invented sample facts. Importing them into a portable saved-results mode is NOT implemented.
-- Model calls and prompts are versioned in `runs`. The latest prompt/guards were edited after the second pilot; the complete pilot has NOT been rerun with all latest improvements.
+## What works and what is verified
 
-## Highest-priority work (do this before full-corpus processing)
+- Python FastAPI + Pydantic + SQLAlchemy/SQLite/FTS5, durable leased jobs, page checkpoints, PDF upload/dedup, typed facts, exact quotes/offsets/word boxes, semantic verification and quarantine.
+- React/TypeScript interface: collections, upload, search, results, relationships, source viewer, job coverage, failures, exports.
+- Every starter PDF parsed: 511 pages total. A 15-page pilot is disclosed as partial extraction coverage.
+- Archived real gpt-oss pilot exports: `samples/actual-runs/*.json.gz`, 52 accepted and 114 quarantined claims after safety audit; zero relationships. These are not GLM outputs or a gold dataset.
+- `scripts.import_samples` restores actual exports into a NEW data directory, requiring all source hashes to match the supplied archive. Both real exports were restored successfully, retaining all original PDFs and evidence.
+- Saved mode labels itself and disables uploads/resume in UI and API.
+- Browser checked saved search, claim detail, and corporate address highlight on annual PDF page 51. The highlight aligned with the actual row. Added cross-page context links, source-page navigation, zoom, modal focus trap/restore, and unrotated evidence/render coordinates.
+- 36 tests pass, covering comparison arithmetic/negation/context, provenance, rotated PDFs, upload/dedup, lease recovery, unavailable model, saved restoration, reprocess, and request budgets. Ruff and frontend build are included in `make test`.
+- Dockerfile/Compose and deployment instructions exist. Two Docker builds FAILED before app build while downloading registry image metadata (`context deadline exceeded`). Do not call the image tested.
 
-1. **Fix extraction correctness.** The model accepted bogus table associations even in the verifier pass. Native block ordering can still misread infographics and some columns. New generic guards quarantine infographic numbers (large numeric display spans), unsupported scope strings and quarter qualifiers dropped from period. More meaningful source-to-subject and value-to-column validation is needed; use PyMuPDF table cells/coordinates or a vision-capable accessible model for hard layouts. Do not patch particular company names or values.
-2. **Repair context extraction.** The model invented `scope=standalone` from headings such as “Key operating metrics,” including for macroeconomic facts. The new exact scope-evidence guard quarantines this, but better extraction should omit unsupported fields. The updated prompt requests verbatim time context and optional scope. Main issuer identity comes from first-three-page reference units; still check pronoun attribution to issuer versus nearby subsidiary headings.
-3. **Reprocess selected pages cleanly with a new pipeline version.** Existing `pages.status='extracted'` checkpoints skip those pages, and content duplicate uploads reuse jobs. Add a proper version-aware reprocess command; preserve old claims/runs as superseded. Bumping the version only invalidates model cache; it currently does not invalidate page checkpoints. Avoid duplicate or stale relationships. Stable claim IDs reduce identical rerun duplication but do not solve changed outputs.
-4. **Finish and evaluate relationships.** `alignment.py` and `scripts/reconcile.py` were written but not run/validated. They discover predicate aliases then use deterministic comparison or model judgment on unresolved pairs. Integrate into the worker after validating; currently only deterministic comparisons run automatically. Add tests for persisted relationship insertion, alias effects, invalidation and cross-document retrieval. Model numeric judgments need deterministic arithmetic revalidation. Fiscal/calendar and estimate-vintage normalization need careful source support.
-5. Reproduce the four cases in ANALYSIS_AND_AGENT_HANDOFF.md through runtime extraction: PIN coverage corroboration; corporate postal-code discrepancy (122002 vs 122001); scope/unit/vintage reconciliation; observed chart extraction failure. Expected values belong in evaluation fixtures only. Some currently quarantined address claims are otherwise correct but carried invented scope; rerun rather than manually seed corrected facts.
+## Runtime and data
 
-## Other missing engineering work
+- Live-data API: port 8017, exec session 23988, PID 63007 at last start. It has earlier imports; restart to load later Python changes.
+- Saved-results API: port 8018, session 68575, PID 63447. FACT_DATA_DIR=data/saved-preview, FACT_SAMPLE_MODE=true. It serves genuine restored exports and was used for visual QA.
+- Worker is STOPPED for handoff. Active incomplete jobs were marked partial with `operator_checkpoint` failure records and leases cleared; queued jobs remain queued. Start only after reviewing provider status/budgets. No background extraction should be assumed active.
+- Current primary DB: `data/knowledge.sqlite`; all 166 older claims are superseded by explicit v3 reprocess, with no fresh accepted claims yet. Do not mistake the empty current accepted set for data loss. Preserved exports provide old usable results.
+- Original sources are in ignored `starter-datasets.zip`, `data/pdfs/`, and original assignment PDF. `data/pilot-v1.sqlite` preserves early failures. Do not overwrite backups or fabricate accepted claims.
+- Pipeline version: `layout-3.claims-3.verify-2.compare-2`. Bump it before another prompt/semantic change so caches do not hide changes.
+- `uv` 0.12.5; `.venv` Python 3.13.15. Node/npm are installed. `gh` authenticates as UtkarsHMer05 with repository scopes. No GitHub remote exists yet. No video or form submission.
+- Another unrelated service had occupied port 8000. Do not kill it.
 
-- Bounded model accounting currently undercounts retries/repair/verifier calls and allows the last call to exceed budgets. Alignment/judgment budgets are not wired to jobs. Fix before all-511-page extraction.
-- Page retries can retain partial-region claims and stale failures; make region checkpoints/versioning explicit. Worker ownership must be rechecked on writes if a lease is lost. Add cancellation if retaining that promised job state.
-- Coordinate extraction is native-text only. `FACT_ENABLE_OCR` exists but is not implemented; remove or implement it. Rotation mapping needs a real rotated-PDF test. Existing word boxes use unrotated coordinates while rendered dimensions may be rotated.
-- `ClaimDetail` currently combines context anchors from other pages onto the primary page SVG. Fix by grouping evidence by page, showing context-page links, and filtering overlays to the displayed page. Add dialog focus trap/restore and verify Escape behavior.
-- API health currently always says `mode=live`; UI has saved-mode handling but no backend mode/import. Implement hash-verified import of genuine exports and disable live upload in saved mode.
-- Set retrieval/registry endpoints and filters only if useful; do not add a graph, chat, authentication, or cloud hosting before core correctness.
-- Add evaluation fixtures with 30–40 manually verified claims and 15–20 pairs; current tests are controlled synthetic unit/integration checks, not corpus accuracy. Report misses and abstentions separately.
-- Fresh-install run through README, mobile/desktop source viewer verification, actual sub-three-minute demo recording, final source exports and GitHub/video publication remain. No remote repository, video, form submission or hosted deployment exists. Publication/form authorization is still separate.
+## Next steps, in order
 
-## Commands and files
+1. Run `make test`, `uv run python -m scripts.status`, and inspect git status. Keep `.env` private. Confirm provider with a tiny bounded JSON request, then one actual source region using `model.extract`. Do not burn through the full corpus while provider requests hang. Record status, elapsed time, usage and failure type without logging credentials or hidden model reasoning.
+2. Fix latency/JSON issues while retaining the exact requested model. Requests currently send the whole extraction JSON schema plus active text and first-three-page identity hints; the verifier receives redundant references. Trim redundant context thoughtfully, preserving source IDs and enough issuer/date evidence. Consider smaller source chunks and extraction output batches. Do not disable grounding to get counts up.
+3. Rerun selected pilot pages explicitly with `scripts.reprocess --pilot`, then worker. Resuming current partial jobs removes page selection and processes remaining pages, so reprocess is the appropriate fresh pilot command. This preserves superseded claims and model runs. Check accepted source subject, table column, units, scope and date manually against PDFs.
+4. Required candidate cases, already located in source PDFs:
+   - Corroboration: annual PDF22 and earnings PDF8 report 18,793 PIN codes. Annual as-of March 31, 2024 vs presentation Q4 FY24 needs evidence-supported endpoint normalization. Infographic number gating may currently quarantine the presentation; never bypass it just for the demo.
+   - Likely contradiction: SAME annual report PDF31 (printed61) postal122002 vs PDF51 (printed100) postal122001, same corporate office. Earlier prospectus PDF30 postal122002 is extra historical evidence, not enough alone to establish same-date conflict. Source does not establish which code is correct.
+   - Context: annual PDF22 standalone revenue74,540.82 million vs consolidated81,415.38 million; earnings PDF17 consolidated8,142 crore is rounded. Alternative: Survey PDF14 GDP6.4 FY25 first advance vs RBI PDF8 GDP6.5 second advance, with release/vintage evidence. Do not assert causal explanations without evidence.
+   - Genuine failure: earnings PDF9 flattened chart confused PTL revenue1,517 crore with tonnage1,429 thousand tonnes. Saved original failure in `samples/evaluation/pilot-v1-failures.json`. Demonstrate current quarantine/coverage honestly.
+5. Finish and evaluate relationship workflow. Worker now runs deterministic comparisons and calls alignment/reconciliation when the collection queue settles; standalone `scripts.reconcile` remains available. Equivalent predicates are learned from observed labels. Entity aliases are not yet resolved. Context normalization and missing time prevent many legitimate pairs; fix generically using exact evidence. Model semantic judgments need strict numerical/qualification review; missing context must not be upgraded without evidence. Add meaningful regression tests for failures actually found.
+6. Broaden to both complete collections only after pilot quality improves and budget is feasible. Report parsing and semantic coverage separately. Never claim all511 pages semantically extracted based on parsing counts. Export refreshed real outputs and evaluate successes plus failures, not just counts.
+7. Finish mobile/keyboard/live-upload QA, including interrupted jobs and errors. Desktop saved evidence was verified; a complete mobile pass was not. Record a genuine <=180-second demo with real upload and all four cases. Time skips are allowed if labeled. Do not substitute a scripted animation for successful processing.
+8. Retry Docker build when registry connectivity works. Test container health, upload, worker progress, and volume survival across restart. Use DEPLOYMENT.md. Obtain the already-requested hosting destination if not provided; prepare everything else before asking for account access. Keep provider key in host secrets. This is currently a shared workspace; add practical admission/rate limits and host access control for public judges, or explicitly constrain access to public docs.
+9. Secret-scan current files AND git history. Create the GitHub repository using the authenticated account once artifacts are coherent and truthfully documented. Publish only code/public sample excerpts, not .env/data/archive. Update README with actual repository/deployment/video links only after verifying them. No final hiring-form submission has been authorized.
+10. End with exact completed artifacts, checks and remaining dependencies. The previous agent stopped near Codex quota as requested, not because the assignment was finished.
 
-```sh
-uv run pytest -q
-uv run ruff check backend scripts tests
-npm run build --prefix frontend
-uv run python -m backend.factlayer.worker
-uv run python -m scripts.reconcile
-uv run python -m scripts.export_samples
-```
+## Important implementation caveats
 
-Model/grounding: `backend/factlayer/model.py`, `pdf.py`, `schema.py`.
-Jobs/DB: `worker.py`, `db.py`, `ingest.py`.
-Relations: `compare.py`, `alignment.py`.
-Interface: `frontend/src/App.tsx`, `style.css`.
-Tests: `tests/`; sample selection: `scripts/ingest_starters.py`.
-
-Use the approved ANALYSIS_AND_AGENT_HANDOFF.md as the target contract, README.md as actual current capabilities, and this file as the gap list. Continue independently through local work; do not treat passing synthetic tests as permission to claim the assignment is finished.
+- Grounding checks quote membership, optional scope must literally occur in context evidence, and quarter headers cannot be reduced to annual periods. It rejects numeric claims from visually ambiguous infographic units. No OCR/vision or cell-grid reconstruction exists.
+- The independent verification pass uses the same model and can repeat mistakes. Never equate accepted spans with independently true facts.
+- `model.job_context` reserves every HTTP attempt in the job BEFORE network work and counts reported usage, including retries/repairs. Standalone reconciliation has no job context budget. Token limits are thresholds between calls; unknown failed-request usage is not recoverable.
+- Current alignment batches120 observed predicates, retrieval limits30 candidates, judgment batches10. Cross-batch aliases and long-corpus coverage need review. Model-proposed alignment is not automatically trusted truth.
+- Same-context numeric comparisons use Decimal and source display precision, including bps conversion. Different known context gets a bounded comparability explanation; unknown context abstains. Negative assertion of one value does not contradict a different positive value.
+- Old exports have earlier model provenance at run level; newly persisted claims also store model/version. Preserve lineage when refreshing samples.

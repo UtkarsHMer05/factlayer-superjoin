@@ -57,7 +57,10 @@ def compare(a, b, aligned=False):
         pa, pb = va.get('precision'), vb.get('precision')
         tolerance = Decimal(0)
         if pa is not None and pb is not None:
-            tolerance = max(Decimal(10) ** -pa * SCALES[va.get('scale', 'one')], Decimal(10) ** -pb * SCALES[vb.get('scale', 'one')]) / 2
+            def resolution(v, precision):
+                amount = Decimal(10) ** -precision * SCALES[v.get('scale', 'one')]
+                return amount / 100 if key(v.get('unit') or '') in ('basis points', 'bps') else amount
+            tolerance = max(resolution(va, pa), resolution(vb, pb)) / 2
         value_equal = na == nb or (tolerance > 0 and abs(na - nb) < tolerance)
         result['calculation']['rounding_tolerance'] = str(tolerance)
     elif va['kind'] == 'range' or vb['kind'] == 'range':
@@ -72,6 +75,8 @@ def compare(a, b, aligned=False):
         result.update(label='reconciles', reason='modality', explanation='One claim is qualified differently (for example, a forecast versus an assertion); they are not interchangeable observations.')
     elif value_equal and a.get('polarity', 'positive') == b.get('polarity', 'positive'):
         result.update(label='corroborates', reason='same_value', explanation='The subject, predicate and recorded context match. Values agree exactly or within the documented display precision after unit conversion. This is agreement between disclosures, not independent proof of truth.')
+    elif a.get('polarity', 'positive') != b.get('polarity', 'positive') and not value_equal:
+        result.update(reason='different_value_and_polarity', explanation='A negative assertion about one value does not contradict a positive assertion about a different value.')
     elif va['kind'] == 'number' and vb['kind'] == 'number':
         result.update(label='contradicts', certainty='likely', reason='different_values', explanation='The recorded subject, predicate, time and context match, but the numerical values disagree beyond display precision. An unrecorded qualification remains possible; neither source is declared correct.')
     elif value_equal and a.get('polarity') != b.get('polarity'):

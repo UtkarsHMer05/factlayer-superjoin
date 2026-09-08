@@ -32,6 +32,7 @@ def normalized_with_offsets(text):
 def page_units(page, doc_id, number):
     words = page.get_text('words', sort=True)
     blocks = page.get_text('blocks', sort=True)
+    page.set_rotation(0)  # Native text coordinates are unrotated; the viewer renders the same space.
     width, height = page.rect.width, page.rect.height
     # Facing-page geometry plus independent footer page labels and a real center gutter.
     footer = [w for w in words if w[1] > height * .88 and re.fullmatch(r'\d{1,4}', w[4])]

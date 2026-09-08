@@ -37,7 +37,7 @@ class CollectionInput(BaseModel):
 @app.get('/api/health')
 def health():
     return {'status': 'ok', 'model': settings.model, 'pipeline_version': PIPELINE_VERSION,
-            'mode': 'live', 'notice': 'Uploads require an accessible Ollama model; parsing works without it.'}
+            'mode': 'sample' if settings.sample_mode else 'live', 'notice': 'Saved results are inspectable without model access. New extraction uses the configured server-side provider.'}
 
 
 @app.post('/api/collections', status_code=201)
@@ -60,6 +60,8 @@ def collections():
 
 @app.post('/api/collections/{cid}/documents', status_code=202)
 async def upload(cid: str, file: UploadFile):
+    if settings.sample_mode:
+        raise HTTPException(403, 'Saved-results mode: uploads are disabled')
     chunks, total = [], 0
     while chunk := await file.read(1024 * 1024):
         total += len(chunk)
@@ -89,6 +91,8 @@ def job(jid: str):
 
 @app.post('/api/jobs/{jid}/resume')
 def resume(jid: str):
+    if settings.sample_mode:
+        raise HTTPException(403, 'Saved-results mode: processing is disabled')
     old = required('SELECT * FROM jobs WHERE id=?', (jid,))
     if old['status'] not in ('partial', 'failed'):
         raise HTTPException(409, 'Only partial or failed jobs can resume')
@@ -154,6 +158,7 @@ def page_image(did: str, number: int, width: int = Query(1600, ge=300, le=2400))
         raise HTTPException(404, 'Page not found')
     with pymupdf.open(doc['path']) as pdf:
         page = pdf[number - 1]
+        page.set_rotation(0)  # Evidence coordinates use the unrotated PDF space.
         image = page.get_pixmap(matrix=pymupdf.Matrix(width / page.rect.width, width / page.rect.width), alpha=False)
         return Response(image.tobytes('png'), media_type='image/png', headers={'Cache-Control': 'private, max-age=3600'})
 
