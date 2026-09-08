@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "VITE_OUT_DIR=../public npm ci --prefix frontend && VITE_OUT_DIR=../public npm run build --prefix frontend",
-  "outputDirectory": "public",
+  "buildCommand": "npm ci --prefix frontend && npm run build --prefix frontend",
+  "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.py": {
       "maxDuration": 60
