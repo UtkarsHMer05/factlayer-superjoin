@@ -20,10 +20,3 @@ def health():
 @app.get('/api/collections')
 def collections():
     return []
-
-
-@app.api_route('/{path:path}', methods=['GET', 'POST'])
-@app.api_route('/api/{path:path}', methods=['GET', 'POST'])
-def empty_demo_api(path: str):
-    """Keep the shell navigable without packaging the live backend."""
-    return []
