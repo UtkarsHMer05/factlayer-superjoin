@@ -1,6 +1,7 @@
 .PHONY: setup build dev test ingest demo export-samples
 setup:
-	uv sync --locked --extra live
+	uv sync --locked
+	uv pip install --python .venv/bin/python -r requirements-live.txt
 	npm ci --prefix frontend
 	npm run build --prefix frontend
 build:

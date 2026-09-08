@@ -8,8 +8,9 @@ RUN npm run build
 FROM python:3.13-slim-bookworm
 RUN pip install --no-cache-dir uv==0.12.5
 WORKDIR /app
-COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev --extra live
+COPY pyproject.toml uv.lock requirements-live.txt ./
+RUN uv sync --locked --no-dev
+RUN uv pip install --python /app/.venv/bin/python -r requirements-live.txt
 COPY backend/ backend/
 COPY scripts/ scripts/
 COPY --from=frontend /app/frontend/dist frontend/dist

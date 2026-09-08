@@ -1,13 +1,26 @@
-"""Read-only FactLayer demo entrypoint for Vercel's Python runtime."""
+"""Lightweight Vercel entrypoint for the frontend/API shell."""
 
-import importlib
-import os
+from fastapi import FastAPI
 
-# Vercel Functions have no durable filesystem or independent worker process.
-# This deployment therefore exposes the reviewed saved-results experience only.
-if os.getenv('VERCEL'):
-    os.environ.setdefault('FACT_DATA_DIR', '/tmp/factlayer')
-    os.environ.setdefault('FACT_SAMPLE_MODE', 'true')
-    os.environ.setdefault('FACT_READ_ONLY', 'false')
+app = FastAPI(title='FactLayer')
 
-app = importlib.import_module('backend.factlayer.api').app
+
+@app.get('/api/health')
+def health():
+    return {
+        'status': 'ok',
+        'mode': 'sample',
+        'read_only': True,
+        'notice': 'The Vercel shell does not bundle saved evidence or PDF processing. Use Docker for the full application.',
+    }
+
+
+@app.get('/api/collections')
+def collections():
+    return []
+
+
+@app.api_route('/api/{path:path}', methods=['GET', 'POST'])
+def empty_demo_api(path: str):
+    """Keep the shell navigable without packaging the live backend."""
+    return []
