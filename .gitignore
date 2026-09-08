@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.env
+.env.*
+!.env.example
+data/
+starter-datasets/
+node_modules/
+dist/
+*.log
+.DS_Store
+.impeccable/
+artifacts/
+*.zip
+superjoin-vit-2026-assignment.pdf
