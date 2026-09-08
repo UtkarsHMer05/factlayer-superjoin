@@ -29,7 +29,7 @@ def numeric(value):
 def compare(a, b, aligned=False):
     if key(a['subject']) != key(b['subject']):
         return None
-    if key(a['predicate']) != key(b['predicate']) and not aligned:
+    if key(a.get('canonical_predicate', a['predicate'])) != key(b.get('canonical_predicate', b['predicate'])) and not aligned:
         return None
     ca, cb = a.get('context', {}), b.get('context', {})
     context_diff = {k: [ca.get(k), cb.get(k)] for k in set(ca) | set(cb) if ca.get(k) != cb.get(k)}
@@ -91,7 +91,7 @@ def compare(a, b, aligned=False):
 def candidates(claim, collection_id, limit=30):
     # Exact subject blocks are intentional: aliases must be supported, not guessed.
     import json
-    terms = re.findall(r'\w+', claim['predicate'])[:12]
+    terms = re.findall(r'\w+', claim.get('canonical_predicate', claim['predicate']))[:12]
     query = ' OR '.join('"' + term.replace('"', '') + '"' for term in terms)
     found = db.rows('''SELECT c.* FROM claim_search f JOIN claims c ON c.id=f.id
                         WHERE claim_search MATCH ? AND c.collection_id=? AND c.subject=?
@@ -114,7 +114,7 @@ def relate_document(doc_id):
                 continue
             verdict = compare(a, b) if left == row['id'] else compare(b, a)
             if verdict:
-                db.execute('INSERT OR IGNORE INTO relationships VALUES(?,?,?,?,?,?,?)',
+                db.execute('INSERT OR IGNORE INTO relationships VALUES(?,?,?,?,?,?)',
                            (db.uid(), row['collection_id'], left, right, verdict['label'], db.dumps(verdict)))
                 count += 1
     return count

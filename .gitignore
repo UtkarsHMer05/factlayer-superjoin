@@ -13,5 +13,8 @@ dist/
 .DS_Store
 .impeccable/
 artifacts/
+*.tsbuildinfo
+output/playwright/
+.playwright-cli/
 *.zip
 superjoin-vit-2026-assignment.pdf

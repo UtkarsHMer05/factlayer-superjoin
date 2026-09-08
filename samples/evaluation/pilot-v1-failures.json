@@ -1,0 +1,309 @@
+{
+  "description": "First real pilot: source-span checks alone did not validate semantic table interpretation. Superseded by layout and verification improvements.",
+  "counts": [
+    {
+      "status": "accepted",
+      "n": 73
+    },
+    {
+      "status": "quarantined",
+      "n": 88
+    }
+  ],
+  "failures": [
+    {
+      "filename": "02-delhivery-annual-report-fy24-excerpt.pdf",
+      "page": 22,
+      "status": "accepted",
+      "candidate": {
+        "subject": "Vinculum Solutions Private Limited",
+        "predicate": "gateway_area_bhiwandi",
+        "assertion": "Gateway infrastructure in Bhiwandi is 750,000 sq ft",
+        "value": {
+          "kind": "number",
+          "raw": "750,000 sq ft",
+          "number": "750000",
+          "upper": null,
+          "unit": "sq ft",
+          "scale": "one",
+          "comparator": "=",
+          "precision": null
+        },
+        "context": {},
+        "context_evidence": {},
+        "evidence": [
+          {
+            "unit_id": "cd5681002d436413c8e18f705e725dc4",
+            "quote": "the gateway infrastructure in Bhiwandi to 750,000 sq ft",
+            "role": "assertion"
+          }
+        ],
+        "polarity": "positive",
+        "modality": "asserted",
+        "anchors": [
+          {
+            "unit_id": "cd5681002d436413c8e18f705e725dc4",
+            "quote": "the gateway infrastructure in Bhiwandi to 750,000 sq ft",
+            "role": "assertion",
+            "page": 22,
+            "start": 2928,
+            "end": 2983,
+            "boxes": [
+              [
+                651.973388671875,
+                467.4346008300781,
+                665.0540161132812,
+                479.3775939941406
+              ],
+              [
+                668.0068969726562,
+                467.4346008300781,
+                702.4769287109375,
+                479.3775939941406
+              ],
+              [
+                705.4307250976562,
+                467.4346008300781,
+                762.5572509765625,
+                479.3775939941406
+              ],
+              [
+                765.5110473632812,
+                467.4346008300781,
+                772.8757934570312,
+                479.3775939941406
+              ],
+              [
+                775.82958984375,
+                467.4346008300781,
+                813.8824462890625,
+                479.3775939941406
+              ],
+              [
+                816.8353271484375,
+                467.4346008300781,
+                824.9848022460938,
+                479.3775939941406
+              ],
+              [
+                827.9439697265625,
+                467.4346008300781,
+                861.6965942382812,
+                479.3775939941406
+              ],
+              [
+                864.650390625,
+                467.4346008300781,
+                874.594482421875,
+                479.3775939941406
+              ],
+              [
+                877.5536499023438,
+                467.4346008300781,
+                884.087646484375,
+                479.3775939941406
+              ]
+            ],
+            "method": "native_text"
+          }
+        ],
+        "context_anchors": {},
+        "grounding": "source_spans_verified",
+        "grounding_limit": "Exact source spans and value checked; semantic interpretation is model-generated, not independently proven.",
+        "id": "84133e71c4cc9438d0e1c01660ce2f2e"
+      }
+    },
+    {
+      "filename": "02-delhivery-annual-report-fy24-excerpt.pdf",
+      "page": 22,
+      "status": "accepted",
+      "candidate": {
+        "subject": "Vinculum Solutions Private Limited",
+        "predicate": "gateway_area_bengaluru",
+        "assertion": "Gateway infrastructure in Bengaluru is expanding to 1,000,000 sq ft",
+        "value": {
+          "kind": "number",
+          "raw": "1,000,000 sq ft",
+          "number": "1000000",
+          "upper": null,
+          "unit": "sq ft",
+          "scale": "one",
+          "comparator": "=",
+          "precision": null
+        },
+        "context": {},
+        "context_evidence": {},
+        "evidence": [
+          {
+            "unit_id": "cd5681002d436413c8e18f705e725dc4",
+            "quote": "and is expanding to 1,000,000 sq ft in Bengaluru",
+            "role": "assertion"
+          }
+        ],
+        "polarity": "positive",
+        "modality": "asserted",
+        "anchors": [
+          {
+            "unit_id": "cd5681002d436413c8e18f705e725dc4",
+            "quote": "and is expanding to 1,000,000 sq ft in Bengaluru",
+            "role": "assertion",
+            "page": 22,
+            "start": 3040,
+            "end": 3088,
+            "boxes": [
+              [
+                651.973388671875,
+                479.4316101074219,
+                667.30126953125,
+                491.3746032714844
+              ],
+              [
+                670.1561279296875,
+                479.4316101074219,
+                677.1265869140625,
+                491.3746032714844
+              ],
+              [
+                679.9805297851562,
+                479.4316101074219,
+                722.8131713867188,
+                491.3746032714844
+              ],
+              [
+                725.6670532226562,
+                479.4316101074219,
+                733.7886962890625,
+                491.3746032714844
+              ],
+              [
+                736.6434936523438,
+                479.4316101074219,
+                777.5513305664062,
+                491.3746032714844
+              ],
+              [
+                780.4061889648438,
+                479.4316101074219,
+                790.3223876953125,
+                491.3746032714844
+              ],
+              [
+                793.17724609375,
+                479.4316101074219,
+                799.6824340820312,
+                491.3746032714844
+              ],
+              [
+                802.536376953125,
+                479.4316101074219,
+                809.8731689453125,
+                491.3746032714844
+              ],
+              [
+                812.7279663085938,
+                479.4316101074219,
+                856.8783569335938,
+                491.3746032714844
+              ]
+            ],
+            "method": "native_text"
+          }
+        ],
+        "context_anchors": {},
+        "grounding": "source_spans_verified",
+        "grounding_limit": "Exact source spans and value checked; semantic interpretation is model-generated, not independently proven.",
+        "id": "7f132d1ec16998fea11d25b30aa34569"
+      }
+    },
+    {
+      "filename": "03-delhivery-q4-fy24-earnings-presentation.pdf",
+      "page": 9,
+      "status": "quarantined",
+      "candidate": {
+        "subject": "PTL freight",
+        "predicate": "revenue",
+        "assertion": "PTL freight revenue in FY24 was 1,429\u202f\u20b9\u202fCr",
+        "value": {
+          "kind": "number",
+          "raw": "1,429",
+          "number": "1429",
+          "upper": null,
+          "unit": "\u20b9 Cr",
+          "scale": "one",
+          "comparator": "=",
+          "precision": null
+        },
+        "context": {
+          "period": "FY24",
+          "geography": null,
+          "scope": "freight"
+        },
+        "context_evidence": {
+          "period": [
+            {
+              "unit_id": "230c67437434972d44e18f0e8f36a99e",
+              "quote": "FY24",
+              "role": "context"
+            }
+          ]
+        },
+        "evidence": [
+          {
+            "unit_id": "230c67437434972d44e18f0e8f36a99e",
+            "quote": "PTL freight revenue(2)\n\u2026\nFY24\n\u2026\n1,429",
+            "role": "assertion"
+          }
+        ],
+        "polarity": "positive",
+        "modality": "asserted",
+        "rejection": "Quote is absent from source: PTL freight revenue(2)\n\u2026\nFY24\n\u2026\n1,429",
+        "id": "e426b894aeb2bac33a0afde59ff54f53"
+      }
+    },
+    {
+      "filename": "03-delhivery-q4-fy24-earnings-presentation.pdf",
+      "page": 9,
+      "status": "quarantined",
+      "candidate": {
+        "subject": "PTL freight",
+        "predicate": "revenue YoY growth",
+        "assertion": "PTL freight revenue grew 30% YoY in FY24",
+        "value": {
+          "kind": "number",
+          "raw": "30%",
+          "number": "30",
+          "upper": null,
+          "unit": "percent",
+          "scale": "one",
+          "comparator": "=",
+          "precision": null
+        },
+        "context": {
+          "period": "FY24",
+          "geography": null,
+          "scope": "freight"
+        },
+        "context_evidence": {
+          "period": [
+            {
+              "unit_id": "230c67437434972d44e18f0e8f36a99e",
+              "quote": "FY24",
+              "role": "context"
+            }
+          ]
+        },
+        "evidence": [
+          {
+            "unit_id": "230c67437434972d44e18f0e8f36a99e",
+            "quote": "YoY: 31% YoY: 30% 62% 63% 59%",
+            "role": "assertion"
+          }
+        ],
+        "polarity": "positive",
+        "modality": "asserted",
+        "rejection": "Quote is ambiguous within its unit; include a longer passage",
+        "id": "7f2177eed921a3949ec1f381e9c6f8ad"
+      }
+    }
+  ]
+}

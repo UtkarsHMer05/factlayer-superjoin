@@ -5,7 +5,7 @@ import time
 
 processes = []
 try:
-    processes.append(subprocess.Popen([sys.executable, '-m', 'uvicorn', 'backend.factlayer.api:app', '--host', '127.0.0.1', '--port', '8000']))
+    processes.append(subprocess.Popen([sys.executable, '-m', 'uvicorn', 'backend.factlayer.api:app', '--host', '127.0.0.1', '--port', '8017']))
     processes.append(subprocess.Popen([sys.executable, '-m', 'backend.factlayer.worker']))
     while all(p.poll() is None for p in processes):
         time.sleep(1)

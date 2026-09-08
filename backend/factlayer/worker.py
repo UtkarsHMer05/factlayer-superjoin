@@ -10,7 +10,7 @@ import pymupdf
 from . import db
 from .compare import key, relate_document
 from .config import settings
-from .model import ModelUnavailable, extract
+from .model import ModelUnavailable, extract, verify
 from .pdf import ground, page_units
 
 log = logging.getLogger(__name__)
@@ -27,12 +27,15 @@ def claim_job(owner):
         return dict(row)
 
 
-def persist_claim(doc, page, candidate, units):
+def persist_claim(doc, page, candidate, units, verification=None):
     claim_id = hashlib.sha256((doc['id'] + str(page) + candidate.model_dump_json()).encode()).hexdigest()[:32]
     if db.one('SELECT id FROM claims WHERE id=?', (claim_id,)):
         return
     try:
         data = ground(candidate, units)
+        if verification is None or verification.get('valid') is not True:
+            raise ValueError('Semantic verification: ' + (verification or {}).get('reason', 'No affirmative verification returned'))
+        data['verification'] = verification
         status = 'accepted'
     except ValueError as exc:
         status = 'quarantined'
@@ -69,6 +72,12 @@ def process(job, owner):
     try:
         db.execute("UPDATE documents SET status='processing' WHERE id=?", (doc['id'],))
         with pymupdf.open(doc['path']) as pdf:
+            identity_units = []
+            for ni in range(min(3, len(pdf))):
+                identity_units.extend(page_units(pdf[ni], doc['id'], ni + 1)['units'])
+            metadata = {'source_identity': [{'unit_id': u['id'], 'text': u['text'][:6000]} for u in identity_units]}
+            for unit in identity_units:
+                db.execute('INSERT OR REPLACE INTO evidence VALUES(?,?,?,?,?)', (unit['id'], doc['id'], unit['page'], unit['text'], db.dumps(unit)))
             for index, page in enumerate(pdf):
                 number = index + 1
                 existing = db.one('SELECT * FROM pages WHERE document_id=? AND number=?', (doc['id'], number))
@@ -100,16 +109,21 @@ def process(job, owner):
                         if settings.max_requests and requests >= settings.max_requests:
                             partial = True
                             break
-                        output, metrics = extract(doc['id'], number, region_units, metadata)
+                        reference_units = {u['id']: u for u in [*identity_units, *units]}
+                        hint = dict(metadata, reference_evidence=[{'unit_id': u['id'], 'text': u['text']} for u in units if u['region'] != region],
+                                    instruction='Extract only from the active evidence, not identity/reference pages. Reference pages may support subject and document-wide context. Company refers to the issuer, never the nearest subsidiary heading.')
+                        output, metrics = extract(doc['id'], number, region_units, hint)
                         requests += 0 if metrics.get('cached') else 1
                         tokens += metrics['tokens']
-                        for candidate in output.claims:
-                            persist_claim(doc, number, candidate, region_units)
+                        decisions, verification_metrics = verify(doc['id'], number, output.claims, list(reference_units.values()), hint) if output.claims else ({}, {'tokens': 0})
+                        requests += 1 if output.claims else 0
+                        tokens += verification_metrics['tokens']
+                        for ci, candidate in enumerate(output.claims):
+                            persist_claim(doc, number, candidate, list(reference_units.values()), decisions.get(ci))
                         for warning in output.warnings:
                             db.failure(doc['id'], number, 'extraction', warning)
                         if not metadata.get('title') and output.title:
-                            metadata.update(title=output.title, subject=output.subject)
-                            db.execute('UPDATE documents SET metadata=? WHERE id=?', (db.dumps(metadata), doc['id']))
+                            db.execute('UPDATE documents SET metadata=? WHERE id=?', (db.dumps({'title': output.title, 'subject': output.subject}), doc['id']))
                     else:
                         db.execute("UPDATE pages SET status='extracted' WHERE document_id=? AND number=?", (doc['id'], number))
                     db.execute('UPDATE jobs SET requests=?,tokens=? WHERE id=?', (requests, tokens, job['id']))
