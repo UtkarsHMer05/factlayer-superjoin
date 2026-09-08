@@ -35,6 +35,13 @@ def test_missing_scope_does_not_imply_equality():
     assert compare(a, b)['label'] == 'insufficient_context'
 
 
+def test_shared_as_of_allows_one_side_to_record_an_extra_period_label():
+    a, b = claim(), claim()
+    a['context'] = {'as_of': 'March 31, 2024'}
+    b['context'] = {'as_of': 'March 31, 2024', 'period': 'Q4 FY24'}
+    assert compare(a, b)['label'] == 'corroborates'
+
+
 def test_missing_time_abstains():
     a, b = claim(), claim()
     a['context'] = b['context'] = {}
@@ -64,6 +71,15 @@ def test_postal_code_conflict():
     b = deepcopy(a)
     b['value']['raw'] = 'Plot No. 7, Sector 12, Example City 110002'
     assert compare(a, b)['reason'] == 'address_postal_code'
+
+
+def test_same_document_undated_postal_code_conflict_is_likely():
+    a = claim()
+    a.update(document_id='same-document', predicate='corporate office address',
+             value={'kind': 'text', 'raw': 'Plot No. 7, Sector 12, Example City 110001'}, context={})
+    b = deepcopy(a)
+    b['value']['raw'] = 'Plot No. 7, Sector 12, Example City 110002'
+    assert compare(a, b)['label'] == 'contradicts'
 
 
 def test_registered_and_corporate_office_not_same_predicate():

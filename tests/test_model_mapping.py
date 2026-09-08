@@ -8,6 +8,7 @@ from backend.factlayer.model import (
     _map_claim,
     _parse_number,
     _remote_body,
+    _retry_after_seconds,
 )
 
 
@@ -65,6 +66,26 @@ def test_map_claim_text_preserves_address():
     assert claim.value.kind == 'text' and claim.value.raw == raw
 
 
+def test_map_claim_normalizes_gateway_double_escaped_source_line_breaks():
+    claim, error = _map_claim({'subject': 'Example Ltd', 'predicate': 'coverage', 'value_raw': '18,793',
+                               'quote': r'Pin-code reach\n18,793', 'period': '', 'unit': '', 'scope': ''},
+                              {'id': 'u1', 'text': 'Pin-code reach\n18,793'})
+    assert error is None
+    assert claim.evidence[0].quote == 'Pin-code reach\n18,793'
+
+
+def test_map_claim_can_anchor_document_wide_context_on_a_source_context_unit():
+    claim, error = _map_claim(
+        {'subject': 'Example Ltd', 'predicate': 'coverage', 'value_raw': '18,793',
+         'quote': 'Pin-code reach 18,793', 'as_of': 'March 31, 2024', 'period': '', 'unit': '', 'scope': ''},
+        {'id': 'page-unit', 'text': 'Pin-code reach 18,793'},
+        [{'id': 'cover-unit', 'text': 'Financial year ended March 31, 2024'}],
+    )
+    assert error is None
+    assert claim.context == {'as_of': 'March 31, 2024'}
+    assert claim.context_evidence['as_of'][0].unit_id == 'cover-unit'
+
+
 def test_map_claim_rejects_empty_fields():
     claim, error = _map_claim({'subject': '', 'predicate': 'revenue', 'value_raw': '1', 'quote': 'x'}, unit())
     assert claim is None and error
@@ -95,13 +116,41 @@ def test_map_claim_keeps_only_explicit_qualifiers():
 
 def test_remote_request_uses_documented_top_level_thinking_control(monkeypatch):
     monkeypatch.setattr(settings, 'model', 'z-ai/glm-5.3-free')
+    monkeypatch.setattr(settings, 'model_url', 'https://api.tokenrouter.com/v1')
+    monkeypatch.setattr(settings, 'thinking_mode', 'enabled')
     monkeypatch.setattr(settings, 'reasoning_effort', 'low')
     body = _remote_body('system', {'source': 'untrusted source'})
     assert body['thinking'] == {'type': 'enabled'}
     assert body['reasoning_effort'] == 'low'
+    assert 'provider' not in body
     assert body['response_format'] == {'type': 'json_object'}
     assert 'chat_template_kwargs' not in body
     assert body['stream'] is True
+
+
+def test_openrouter_free_request_uses_only_common_json_controls(monkeypatch):
+    monkeypatch.setattr(settings, 'model', 'openrouter/free')
+    monkeypatch.setattr(settings, 'model_url', 'https://openrouter.ai/api/v1')
+    body = _remote_body('system', {'source': 'untrusted source'})
+    assert body['provider'] == {'require_parameters': True}
+    assert 'thinking' not in body and 'reasoning_effort' not in body
+    assert body['response_format'] == {'type': 'json_object'}
+
+
+def test_non_glm_openai_compatible_request_uses_no_glm_controls(monkeypatch):
+    monkeypatch.setattr(settings, 'model', 'deepseek/deepseek-v4-flash')
+    monkeypatch.setattr(settings, 'model_url', 'https://api.example.com/v1')
+    monkeypatch.setattr(settings, 'thinking_mode', 'enabled')
+    body = _remote_body('system', {'source': 'untrusted source'})
+    assert 'thinking' not in body and 'reasoning_effort' not in body
+    assert body['response_format'] == {'type': 'json_object'}
+
+
+def test_extraction_contract_preserves_explicit_comparison_contexts():
+    assert 'at most 4 material claims' in model.SYSTEM
+    assert 'distinct scopes, periods, or populations' in model.SYSTEM
+    assert 'registered, corporate, or legal address' in model.SYSTEM
+    assert 'select rows in source order' in model.SYSTEM
 
 
 def test_empty_model_response_does_not_retry_and_spend_more_quota(monkeypatch):
@@ -109,3 +158,14 @@ def test_empty_model_response_does_not_retry_and_spend_more_quota(monkeypatch):
 
     with pytest.raises(ModelUnavailable, match='no final JSON content'):
         model.chat_json('system', {'source': 'text'})
+
+
+def test_json_object_recovers_a_gateway_preamble_without_inventing_content():
+    assert model._json_object('Here is the result: {"claims": [], "warnings": []}') == {
+        'claims': [], 'warnings': [],
+    }
+
+
+def test_openrouter_epoch_millisecond_reset_becomes_a_retry_delay():
+    assert _retry_after_seconds({'x-ratelimit-reset': '1788000001000'}, now=1_788_000_000) == 1
+    assert _retry_after_seconds({'x-ratelimit-reset': '1788000061000'}, now=1_788_000_000) == 61

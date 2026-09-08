@@ -11,7 +11,7 @@ from . import db
 from .compare import key, relate_document
 from .config import PIPELINE_VERSION, settings
 from .model import ModelUnavailable, extract, job_context, verify
-from .pdf import ground, page_units
+from .pdf import ground, is_navigation_page, page_units
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ def claim_job(owner):
     now = time.time()
     with db.connect() as c:
         c.execute('BEGIN IMMEDIATE')
-        row = c.execute("SELECT * FROM jobs WHERE status='queued' OR (status IN ('parsing','extracting','comparing') AND lease<?) ORDER BY created LIMIT 1", (now,)).fetchone()
+        row = c.execute("SELECT * FROM jobs WHERE status IN ('queued','parsing','extracting','comparing') AND lease<? ORDER BY created LIMIT 1", (now,)).fetchone()
         if row is None:
             return None
         c.execute("UPDATE jobs SET status='parsing',owner=?,lease=?,updated=? WHERE id=?", (owner, now + 90, now, row['id']))
@@ -71,6 +71,7 @@ def process(job, owner):
     started = time.monotonic()
     partial = bool(selected)
     blocked = False
+    retryable_model_error = None
     requests, tokens = job['requests'], job['tokens']
     try:
         db.execute("UPDATE documents SET status='processing' WHERE id=?", (doc['id'],))
@@ -102,6 +103,12 @@ def process(job, owner):
                     if not units:
                         db.execute("UPDATE pages SET status='empty' WHERE document_id=? AND number=?", (doc['id'], number))
                         continue
+                    if is_navigation_page(units):
+                        # Contents/index text is evidence about document structure,
+                        # not a source assertion. Do not spend a reasoning request
+                        # merely to receive an empty extraction result.
+                        db.execute("UPDATE pages SET status='extracted' WHERE document_id=? AND number=?", (doc['id'], number))
+                        continue
                     usage = db.one('SELECT requests,tokens FROM jobs WHERE id=?', (job['id'],))
                     requests, tokens = usage['requests'], usage['tokens']
                     if blocked or (settings.max_requests and requests >= settings.max_requests) or (settings.max_tokens and tokens >= settings.max_tokens):
@@ -131,9 +138,12 @@ def process(job, owner):
                     db.execute('UPDATE jobs SET requests=?,tokens=? WHERE id=?', (requests, tokens, job['id']))
 
                 except ModelUnavailable as exc:
-                    db.failure(doc['id'], number, 'model_access', str(exc))
+                    detail = str(exc)
+                    db.failure(doc['id'], number, 'model_access', detail)
                     blocked = True
                     partial = True
+                    if 'rate limit' in detail.lower() or 'no final json content' in detail.lower():
+                        retryable_model_error = exc
                 except Exception as exc:
                     log.exception('Page processing failed')
                     db.failure(doc['id'], number, 'processing', str(exc)[:500])
@@ -152,12 +162,25 @@ def process(job, owner):
                 log.exception('Semantic comparison failed')
                 db.failure(doc['id'], None, 'comparison', str(exc)[:500])
                 partial = True
-        status = 'partial' if partial else 'completed'
-        message = ('Model unavailable; source parsing completed. Configure access and resume.' if blocked else
-                   'Selected pages or budget limit; remaining pages are available to resume.' if partial else 'Processing complete.')
-        message += f' Elapsed {time.monotonic() - started:.1f}s.'
-        db.execute('UPDATE jobs SET status=?,message=?,lease=0,updated=? WHERE id=?', (status, message, time.time(), job['id']))
-        db.execute('UPDATE documents SET status=? WHERE id=?', (status, doc['id']))
+        now = time.time()
+        if retryable_model_error:
+            retry_delay = retryable_model_error.retry_after_seconds or settings.model_retry_cooldown_seconds
+            retry_at = now + retry_delay
+            if retry_delay >= 900:
+                message = 'Provider free-model quota reached; extraction will resume automatically at the provider reset. '
+            else:
+                message = 'Free model request window reached; extraction will resume automatically after a short cooldown. '
+            message += f'Elapsed {time.monotonic() - started:.1f}s.'
+            db.execute('UPDATE jobs SET status=?,message=?,lease=?,updated=? WHERE id=?',
+                       ('queued', message, retry_at, now, job['id']))
+            db.execute("UPDATE documents SET status='processing' WHERE id=?", (doc['id'],))
+        else:
+            status = 'partial' if partial else 'completed'
+            message = ('Model unavailable; source parsing completed. Configure access and resume.' if blocked else
+                       'Selected pages or budget limit; remaining pages are available to resume.' if partial else 'Processing complete.')
+            message += f' Elapsed {time.monotonic() - started:.1f}s.'
+            db.execute('UPDATE jobs SET status=?,message=?,lease=0,updated=? WHERE id=?', (status, message, now, job['id']))
+            db.execute('UPDATE documents SET status=? WHERE id=?', (status, doc['id']))
     finally:
         stopped.set()
         job_context.reset(budget_context)

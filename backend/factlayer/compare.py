@@ -26,6 +26,17 @@ def numeric(value):
     return number, unit
 
 
+def address_postal_code_conflict(left, right):
+    """Return differing postal codes only when the remaining address text aligns."""
+    codes_left = re.findall(r'\b\d{5,6}\b', left)
+    codes_right = re.findall(r'\b\d{5,6}\b', right)
+    stem_left = re.sub(r'\b\d{5,6}\b', '', key(left))
+    stem_right = re.sub(r'\b\d{5,6}\b', '', key(right))
+    if codes_left and codes_right and codes_left[-1] != codes_right[-1] and SequenceMatcher(None, stem_left, stem_right).ratio() > .85:
+        return codes_left[-1], codes_right[-1]
+    return None
+
+
 def compare(a, b, aligned=False):
     if key(a['subject']) != key(b['subject']):
         return None
@@ -38,11 +49,35 @@ def compare(a, b, aligned=False):
     va, vb = a['value'], b['value']
     # Both temporal anchors must be evidenced before declaring a real disagreement.
     ta, tb = ca.get('period') or ca.get('as_of'), cb.get('period') or cb.get('as_of')
-    missing = [k for k, v in context_diff.items() if not all(x is not None and x != '' for x in v)]
+    address_conflict = (address_postal_code_conflict(va['raw'], vb['raw'])
+                        if va['kind'] == vb['kind'] == 'text' else None)
+    same_document = a.get('document_id') and a.get('document_id') == b.get('document_id')
+    temporal_disagreement = any(
+        field in {'period', 'as_of'} and all(values)
+        for field, values in context_diff.items()
+    )
+    # Two disclosures in the same document that state the same address role but
+    # different postal codes merit a likely-conflict review even if their local
+    # address rows omit a date. A dated cross-document change still reconciles
+    # through the normal context path below.
+    if address_conflict and (not temporal_disagreement) and (same_document or (ta and tb)):
+        left_code, right_code = address_conflict
+        result.update(label='contradicts', certainty='likely', reason='address_postal_code',
+                      explanation=f'The address text and recorded context align, but postal codes differ: {left_code} versus {right_code}. This may be a disclosure typo; the evidence does not establish which is correct.')
+        return result
+    shared_as_of = bool(ca.get('as_of') and ca.get('as_of') == cb.get('as_of'))
+    # A shared, explicitly cited as-of date is the temporal anchor. A Q-label
+    # present on only one side supplies more temporal detail, not a conflicting
+    # scope or an invitation to assume a fiscal calendar.
+    temporal_detail = {'period', 'as_of'}
+    missing = [k for k, v in context_diff.items()
+               if not (shared_as_of and k in temporal_detail)
+               and not all(x is not None and x != '' for x in v)]
     if missing or not ta or not tb:
         result.update(reason='missing_context', explanation='Comparison needs supported context: ' + ', '.join(sorted(set(missing + ([] if ta and tb else ['time'])))) + '. Neither agreement nor conflict is established.')
         return result
-    resolved_differences = {k: v for k, v in context_diff.items() if all(v)}
+    resolved_differences = {k: v for k, v in context_diff.items()
+                            if not (shared_as_of and k in temporal_detail) and all(v)}
     value_equal = normalize(va['raw']).lower() == normalize(vb['raw']).lower()
     if va['kind'] == 'number' and vb['kind'] == 'number':
         na, ua = numeric(va)
@@ -82,14 +117,7 @@ def compare(a, b, aligned=False):
     elif value_equal and a.get('polarity') != b.get('polarity'):
         result.update(label='contradicts', certainty='likely', reason='opposing_polarity', explanation='Matching assertions and context have opposing explicit polarity. This is a likely contradiction.')
     else:
-        # Generic address components, no company names or postal codes in runtime logic.
-        za, zb = re.findall(r'\b\d{5,6}\b', va['raw']), re.findall(r'\b\d{5,6}\b', vb['raw'])
-        stem_a = re.sub(r'\b\d{5,6}\b', '', key(va['raw']))
-        stem_b = re.sub(r'\b\d{5,6}\b', '', key(vb['raw']))
-        if za and zb and za[-1] != zb[-1] and SequenceMatcher(None, stem_a, stem_b).ratio() > .85:
-            result.update(label='contradicts', certainty='likely', reason='address_postal_code', explanation=f'The address text and recorded context align, but postal codes differ: {za[-1]} versus {zb[-1]}. This may be a disclosure typo; the evidence does not establish which is correct.')
-        else:
-            result.update(reason='semantic_review', explanation='Different text does not necessarily mean mutually exclusive facts. Semantic review is needed.')
+        result.update(reason='semantic_review', explanation='Different text does not necessarily mean mutually exclusive facts. Semantic review is needed.')
     return result
 
 

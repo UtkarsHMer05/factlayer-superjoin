@@ -8,8 +8,22 @@ from sqlalchemy import create_engine, event
 
 from .config import settings
 
-settings.data_dir.mkdir(parents=True, exist_ok=True)
-engine = create_engine(f'sqlite:///{settings.data_dir / "knowledge.sqlite"}', connect_args={'timeout': 30})
+database_path = settings.data_dir / 'knowledge.sqlite'
+if settings.read_only:
+    if not database_path.is_file():
+        raise RuntimeError(
+            f'Read-only FactLayer data is missing at {database_path}. '
+            'Include the saved demo data before deploying this mode.'
+        )
+    # SQLite's URI mode prevents Vercel's immutable function bundle from
+    # attempting a journal, schema, or data write.
+    engine = create_engine(
+        f'sqlite+pysqlite:///file:{database_path.resolve()}?mode=ro&uri=true',
+        connect_args={'timeout': 30},
+    )
+else:
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    engine = create_engine(f'sqlite:///{database_path}', connect_args={'timeout': 30})
 
 
 @event.listens_for(engine, 'connect')
@@ -56,6 +70,8 @@ def execute(sql, args=()):
 
 
 def init():
+    if settings.read_only:
+        return
     with connect() as c:
         c.execute('PRAGMA journal_mode=WAL')
         c.executescript('''

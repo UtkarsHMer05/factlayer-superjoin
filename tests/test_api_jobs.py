@@ -46,6 +46,15 @@ def test_invalid_pdf_and_unknown_page():
         assert client.get(f'/api/documents/{r["document_id"]}/pages/1/image').headers['content-type'] == 'image/png'
 
 
+def test_bundled_pdf_fallback_keeps_saved_demo_sources_available():
+    with TestClient(app) as client:
+        r = ingest(collection(), 'a.pdf', pdf_bytes())
+        original = db.one('SELECT path FROM documents WHERE id=?', (r['document_id'],))['path']
+        db.execute('UPDATE documents SET path=? WHERE id=?', (f'/retired-machine/pdfs/{original.rsplit("/", 1)[-1]}', r['document_id']))
+        assert client.get(f'/api/documents/{r["document_id"]}/pages/1/image').status_code == 200
+        assert client.get(f'/api/documents/{r["document_id"]}/source').headers['content-type'] == 'application/pdf'
+
+
 def test_worker_lease_prevents_duplicate_processing_and_recovers():
     r = ingest(collection(), 'a.pdf', pdf_bytes())
     first = claim_job('first')
@@ -65,6 +74,33 @@ def test_missing_model_still_preserves_page_evidence(monkeypatch):
     assert db.one('SELECT count(*) n FROM evidence')['n'] > 0
     assert db.one("SELECT count(*) n FROM failures WHERE stage='model_access'")['n'] == 1
     assert db.one('SELECT count(*) n FROM claims')['n'] == 0
+
+
+def test_free_model_rate_limit_is_queued_for_automatic_retry(monkeypatch):
+    def rate_limited(*a, **kw):
+        raise ModelUnavailable('Model provider rate limit reached (HTTP 429).')
+
+    monkeypatch.setattr('backend.factlayer.worker.extract', rate_limited)
+    monkeypatch.setattr(settings, 'model_retry_cooldown_seconds', 60)
+    result = ingest(collection(), 'a.pdf', pdf_bytes())
+    process(claim_job('worker'), 'worker')
+    job = db.one('SELECT status,lease,message FROM jobs WHERE id=?', (result['job_id'],))
+    assert job['status'] == 'queued' and job['lease'] > time.time()
+    assert 'automatically' in job['message']
+    assert db.one('SELECT status FROM documents WHERE id=?', (result['document_id'],))['status'] == 'processing'
+
+
+def test_provider_reset_time_is_used_for_a_daily_free_quota(monkeypatch):
+    def rate_limited(*a, **kw):
+        raise ModelUnavailable('Model provider rate limit reached (HTTP 429).', retry_after_seconds=3600)
+
+    monkeypatch.setattr('backend.factlayer.worker.extract', rate_limited)
+    result = ingest(collection(), 'a.pdf', pdf_bytes())
+    process(claim_job('worker'), 'worker')
+    job = db.one('SELECT status,lease,message FROM jobs WHERE id=?', (result['job_id'],))
+    assert job['status'] == 'queued' and job['lease'] > time.time() + 3500
+    assert 'provider reset' in job['message']
+    assert claim_job('next-worker') is None
 
 
 def test_resume_only_partial_jobs():

@@ -5,6 +5,11 @@ import unicodedata
 
 import pymupdf
 
+# Keep most normal PDF pages in one request.  This is still comfortably below
+# the configured model context, preserves a page-level source anchor, and
+# avoids spending several free-provider requests on a single page.
+SOURCE_UNIT_CHARS = 3500
+
 
 def normalize(text):
     return re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', text).replace('\u00ad', '')).strip()
@@ -27,6 +32,19 @@ def normalized_with_offsets(text):
         chars.pop()
         offsets.pop()
     return ''.join(chars), offsets
+
+
+def is_navigation_page(units):
+    """Identify a table-of-contents/index page with no source assertions.
+
+    Index pages can contain a lot of text and page numbers, but their labels
+    point elsewhere in the document rather than state facts. Skipping them
+    avoids spending a long reasoning request simply to receive an empty result.
+    """
+    text = normalize('\n'.join(unit.get('text', '') for unit in units)).lower()
+    navigation_markers = ("table of contents", "contents", "what's inside", "what’s inside")
+    section_markers = ("corporate overview", "statutory reports", "financial statements")
+    return any(marker in text for marker in navigation_markers) and sum(marker in text for marker in section_markers) >= 2
 
 
 def page_units(page, doc_id, number):
@@ -71,7 +89,7 @@ def page_units(page, doc_id, number):
         # Bound units at line boundaries without dropping any source characters.
         start = 0
         while start < len(text):
-            end = min(start + 3500, len(text))
+            end = min(start + SOURCE_UNIT_CHARS, len(text))
             if end < len(text):
                 boundary = text.rfind('\n', start + 1000, end)
                 if boundary > start:

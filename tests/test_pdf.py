@@ -1,7 +1,13 @@
 import pymupdf
 import pytest
 
-from backend.factlayer.pdf import ground, locate, page_units
+from backend.factlayer.pdf import (
+    SOURCE_UNIT_CHARS,
+    ground,
+    is_navigation_page,
+    locate,
+    page_units,
+)
 from backend.factlayer.schema import Anchor, Claim
 
 
@@ -109,3 +115,22 @@ def test_rotated_source_uses_same_unrotated_viewer_space():
         assert (parsed['width'], parsed['height']) == (400, 600)
         assert parsed['units'][0]['spans'][0]['box'][0] == 40
         assert page.rotation == 0
+
+
+def test_navigation_page_is_skipped_without_a_model_request():
+    units = [{'text': """What's inside
+Corporate Overview
+Statutory Reports
+Financial Statements
+"""}]
+    assert is_navigation_page(units)
+    assert not is_navigation_page([{'text': 'The company reported revenue of Rs 100 crore in FY24.'}])
+
+
+def test_source_units_are_bounded_for_reliable_model_extraction():
+    doc = pymupdf.open()
+    page = doc.new_page(width=600, height=8000)
+    page.insert_text((40, 50), 'Revenue was 100.\n' * 500)
+    units = page_units(page, 'doc', 1)['units']
+    assert len(units) > 1
+    assert all(len(unit['text']) <= SOURCE_UNIT_CHARS for unit in units)

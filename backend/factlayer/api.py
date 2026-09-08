@@ -31,6 +31,17 @@ def required(sql, args):
     return row
 
 
+def document_file(doc):
+    """Resolve a document stored locally or bundled with the read-only demo."""
+    recorded = Path(doc['path'])
+    if recorded.is_file():
+        return recorded
+    bundled = settings.data_dir / 'pdfs' / recorded.name
+    if bundled.is_file():
+        return bundled
+    raise HTTPException(404, 'Original PDF is not available')
+
+
 def guard_expensive_action(request: Request, scope: str, limit: int):
     client = request.client.host if request.client else 'unknown-client'
     if not limiter.allowed(scope, client, limit, settings.rate_limit_window_seconds):
@@ -44,11 +55,18 @@ class CollectionInput(BaseModel):
 @app.get('/api/health')
 def health():
     return {'status': 'ok', 'model': settings.model, 'pipeline_version': PIPELINE_VERSION,
-            'mode': 'sample' if settings.sample_mode else 'live', 'notice': 'Saved results are inspectable without model access. New extraction uses the configured server-side provider.'}
+            'mode': 'sample' if settings.sample_mode else 'live', 'read_only': settings.read_only,
+            'notice': 'Saved results are inspectable without model access. New extraction uses the configured server-side provider.'}
+
+
+def guard_writable():
+    if settings.read_only:
+        raise HTTPException(403, 'Read-only public demo: uploads and collection changes are disabled.')
 
 
 @app.post('/api/collections', status_code=201)
 def create_collection(body: CollectionInput):
+    guard_writable()
     if not body.name.strip():
         raise HTTPException(422, 'Collection name cannot be blank')
     cid = db.uid()
@@ -67,6 +85,7 @@ def collections():
 
 @app.post('/api/collections/{cid}/documents', status_code=202)
 async def upload(cid: str, request: Request, file: UploadFile):
+    guard_writable()
     if settings.sample_mode:
         raise HTTPException(403, 'Saved-results mode: uploads are disabled')
     guard_expensive_action(request, 'upload', settings.upload_rate_limit)
@@ -99,6 +118,7 @@ def job(jid: str):
 
 @app.post('/api/jobs/{jid}/resume')
 def resume(jid: str, request: Request):
+    guard_writable()
     if settings.sample_mode:
         raise HTTPException(403, 'Saved-results mode: processing is disabled')
     guard_expensive_action(request, 'resume', settings.resume_rate_limit)
@@ -165,7 +185,7 @@ def page_image(did: str, number: int, width: int = Query(1600, ge=300, le=2400))
     doc = required('SELECT * FROM documents WHERE id=?', (did,))
     if number < 1 or number > doc['page_count']:
         raise HTTPException(404, 'Page not found')
-    with pymupdf.open(doc['path']) as pdf:
+    with pymupdf.open(document_file(doc)) as pdf:
         page = pdf[number - 1]
         page.set_rotation(0)  # Evidence coordinates use the unrotated PDF space.
         image = page.get_pixmap(matrix=pymupdf.Matrix(width / page.rect.width, width / page.rect.width), alpha=False)
@@ -175,7 +195,7 @@ def page_image(did: str, number: int, width: int = Query(1600, ge=300, le=2400))
 @app.get('/api/documents/{did}/source')
 def source(did: str):
     doc = required('SELECT * FROM documents WHERE id=?', (did,))
-    return FileResponse(doc['path'], media_type='application/pdf', filename=doc['filename'])
+    return FileResponse(document_file(doc), media_type='application/pdf', filename=doc['filename'])
 
 
 @app.get('/api/collections/{cid}/failures')
