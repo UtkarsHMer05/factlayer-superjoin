@@ -2,8 +2,6 @@
 
 > Superjoin VIT 2026 assignment submission
 
-**Live demo:** `ADD_YOUR_VERCEL_LINK_HERE`
-
 **Demo video:** [Watch the demo](https://drive.google.com/file/d/1a3ydxa3LQ4f_7QomGshSKRMHHjOpXL1-/view?usp=sharing)
 
 **Repository:** `ADD_YOUR_GITHUB_REPOSITORY_LINK_HERE`
