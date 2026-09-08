@@ -1,6 +1,6 @@
 .PHONY: setup build dev test ingest demo export-samples
 setup:
-	uv sync --locked
+	uv sync --locked --extra live
 	npm ci --prefix frontend
 	npm run build --prefix frontend
 build:

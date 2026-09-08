@@ -4,7 +4,6 @@
   "outputDirectory": "public",
   "functions": {
     "api/index.py": {
-      "includeFiles": "data/live-work/**",
       "maxDuration": 60
     }
   },

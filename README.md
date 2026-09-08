@@ -139,14 +139,12 @@ npm run build --prefix frontend
 
 ## Deployment
 
-The project includes a Vercel configuration for a **read-only public demonstration** of the reviewed workspace. It bundles the public source PDFs and the saved SQLite evidence database. It is suitable for sharing the completed four-case results, but not for processing fresh uploads in production because serverless functions do not provide durable background-worker storage.
+The project includes a Vercel configuration for a lightweight **read-only shell**. It does not bundle PDFs or saved evidence, so it is suitable for verifying the frontend and API health endpoint, but not for showing the reviewed four-case results. Live processing still requires the Docker deployment below.
 
 Before deploying:
 
-1. Commit `data/live-work` because it contains the reviewed public PDFs and saved workspace.
-2. Confirm the PDFs are safe to make public.
-3. Do not add `.env` or any API key to Git or Vercel for the read-only demo.
-4. Import the repository in Vercel and deploy. The included `vercel.json` supplies the build, routing, and bundled-data configuration.
+1. Do not add `.env` or any API key to Git or Vercel for the read-only shell.
+2. Import the repository in Vercel and deploy. The included `vercel.json` supplies the build and routing configuration.
 
 For the full deployment notes, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -158,7 +156,6 @@ For a live, persistent upload workflow, deploy the API and worker together using
 backend/factlayer/       FastAPI application, worker, extraction, grounding, comparison
 frontend/                React/TypeScript user interface
 api/index.py             Vercel ASGI entry point
-data/live-work/          Reviewed public source PDFs and saved local evidence workspace
 scripts/                 Local development, ingestion, export, status, and reprocessing tools
 tests/                   Automated backend and behaviour tests
 vercel.json              Read-only Vercel-demo configuration

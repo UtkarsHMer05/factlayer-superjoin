@@ -31,15 +31,14 @@ No public deployment URL exists yet. An authenticated hosting destination is sti
 
 ## Vercel public demo
 
-This repository is configured for a one-click **read-only demo** on Vercel. It publishes the validated workspace used by the local port-8022 demo: facts, relationships, failures, evidence highlights, source PDFs, and JSON export all work. No API key is configured or needed there.
+This repository is configured for a lightweight **read-only shell** on Vercel. It does not publish PDFs or saved evidence, which keeps the Python function under Vercel's function-size limit. It is useful for verifying the frontend and `/api/health`, but it does not show the reviewed workspace.
 
 It deliberately does **not** accept uploads or run the worker. Vercel Functions do not have durable local storage or a continuously running worker, so treating this demo as a writable ingestion service would lose PDFs and background-job state. The live Docker deployment above remains the supported path for real uploads and processing.
 
 Before importing the repository into Vercel:
 
-1. Review `data/live-work/`: every PDF in it will be public through the demo. It contains only the reviewed Delhivery demonstration material; do not place private files there.
-2. Commit that reviewed directory along with `api/index.py` and `vercel.json`. It is intentionally unignored so Vercel can bundle the demo database and source PDFs.
-3. Import the GitHub repository in Vercel with its root set to this project and click **Deploy**. No environment variable or API key is required for the read-only demo.
-4. Verify `https://YOUR-DEPLOYMENT/api/health`, open the UI, inspect a fact's highlighted source page, and download the JSON export.
+1. Do not add `.env` or any API key to Git or Vercel for this shell.
+2. Import the GitHub repository in Vercel with its root set to this project and click **Deploy**.
+3. Verify `https://YOUR-DEPLOYMENT/api/health` and open the UI.
 
-The Vercel Python function bundles the reviewed SQLite database in read-only mode and the Vite build is emitted to `public/` for CDN delivery. The deploy bundle is about 36 MB of reviewed demo source data plus application dependencies, within Vercel's current 500 MB Python-function uncompressed limit. Vercel's FastAPI documentation describes the single-function runtime; its guidance also notes that asynchronous work needs a queue or similar system, and its file guidance recommends object storage for writes. See [FastAPI on Vercel](https://vercel.com/docs/frameworks/backend/fastapi), [Python runtime bundling](https://vercel.com/docs/functions/runtimes/python), and [Vercel file guidance](https://vercel.com/kb/guide/how-can-i-use-files-in-serverless-functions).
+The Vercel Python function uses the small `requirements.txt` runtime set, while local and Docker live processing enables the `live` dependency extra. The Vite build is emitted to `public/` for CDN delivery. Vercel's FastAPI documentation describes the single-function runtime; its guidance also notes that asynchronous work needs a queue or similar system, and its file guidance recommends object storage for writes. See [FastAPI on Vercel](https://vercel.com/docs/frameworks/backend/fastapi), [Python runtime bundling](https://vercel.com/docs/functions/runtimes/python), and [Vercel file guidance](https://vercel.com/kb/guide/how-can-i-use-files-in-serverless-functions).

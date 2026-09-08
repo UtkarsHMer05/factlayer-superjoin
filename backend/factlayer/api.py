@@ -3,7 +3,6 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import pymupdf
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -11,7 +10,6 @@ from pydantic import BaseModel, Field
 
 from . import db
 from .config import PIPELINE_VERSION, settings
-from .ingest import ingest
 from .limits import limiter
 
 
@@ -96,6 +94,7 @@ async def upload(cid: str, request: Request, file: UploadFile):
             raise HTTPException(413, 'PDF exceeds upload limit')
         chunks.append(chunk)
     try:
+        from .ingest import ingest
         return ingest(cid, file.filename or 'uploaded.pdf', b''.join(chunks))
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -182,6 +181,10 @@ def page_data(did: str, number: int):
 
 @app.get('/api/documents/{did}/pages/{number}/image')
 def page_image(did: str, number: int, width: int = Query(1600, ge=300, le=2400)):
+    try:
+        import pymupdf
+    except ImportError as exc:
+        raise HTTPException(404, 'PDF page previews are unavailable in the lightweight demo deployment.') from exc
     doc = required('SELECT * FROM documents WHERE id=?', (did,))
     if number < 1 or number > doc['page_count']:
         raise HTTPException(404, 'Page not found')

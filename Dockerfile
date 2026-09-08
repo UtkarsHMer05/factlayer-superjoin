@@ -9,7 +9,7 @@ FROM python:3.13-slim-bookworm
 RUN pip install --no-cache-dir uv==0.12.5
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev
+RUN uv sync --locked --no-dev --extra live
 COPY backend/ backend/
 COPY scripts/ scripts/
 COPY --from=frontend /app/frontend/dist frontend/dist

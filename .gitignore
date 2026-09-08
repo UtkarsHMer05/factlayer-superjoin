@@ -6,11 +6,6 @@ __pycache__/
 .env.*
 !.env.example
 data/
-!data/
-# The public Vercel demo intentionally ships only this reviewed, public dataset.
-# Do not add private uploads to this directory.
-!data/live-work/
-!data/live-work/**
 starter-datasets/
 node_modules/
 dist/
