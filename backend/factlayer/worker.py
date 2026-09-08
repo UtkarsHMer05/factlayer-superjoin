@@ -108,29 +108,27 @@ def process(job, owner):
                         partial = True
                         continue
                     db.execute("UPDATE jobs SET status='extracting',message=?,updated=? WHERE id=?", (f'Extracting PDF page {number} of {len(pdf)}', time.time(), job['id']))
-                    # Each facing-page region is independent; preserve all chunks of that region as context.
-                    for region in sorted({u['region'] for u in units}):
-                        region_units = [u for u in units if u['region'] == region]
+                    # Each unit is one small model request; the compact prompt needs short sources.
+                    for unit in units:
                         if settings.max_requests and requests >= settings.max_requests:
                             partial = True
                             break
-                        reference_units = {u['id']: u for u in [*identity_units, *units]}
-                        hint = dict(metadata, reference_evidence=[{'unit_id': u['id'], 'text': u['text']} for u in units if u['region'] != region],
-                                    instruction='Extract only from the active evidence, not identity/reference pages. Reference pages may support subject and document-wide context. Company refers to the issuer, never the nearest subsidiary heading.')
-                        output, metrics = extract(doc['id'], number, region_units, hint)
-                        requests += 0 if metrics.get('cached') else 1
+                        reference_units = [unit, *identity_units]
+                        output, metrics = extract(doc['id'], number, [unit], metadata)
+                        requests += metrics.get('requests', 0 if metrics.get('cached') else 1)
                         tokens += metrics['tokens']
-                        decisions, verification_metrics = verify(doc['id'], number, output.claims, list(reference_units.values()), hint) if output.claims else ({}, {'tokens': 0})
-                        requests += 1 if output.claims else 0
-                        tokens += verification_metrics['tokens']
+                        if output.claims:
+                            decisions, verification_metrics = verify(doc['id'], number, output.claims, [unit], metadata)
+                            requests += 1
+                            tokens += verification_metrics['tokens']
+                        else:
+                            decisions, verification_metrics = {}, {'tokens': 0}
                         for ci, candidate in enumerate(output.claims):
-                            persist_claim(doc, number, candidate, list(reference_units.values()), decisions.get(ci))
+                            persist_claim(doc, number, candidate, reference_units, decisions.get(ci))
                         for warning in output.warnings:
                             db.failure(doc['id'], number, 'extraction', warning)
-                        if not metadata.get('title') and output.title:
-                            db.execute('UPDATE documents SET metadata=? WHERE id=?', (db.dumps({'title': output.title, 'subject': output.subject}), doc['id']))
-                    else:
-                        db.execute("UPDATE pages SET status='extracted' WHERE document_id=? AND number=?", (doc['id'], number))
+                    db.execute("UPDATE pages SET status='extracted' WHERE document_id=? AND number=?", (doc['id'], number))
+                    db.execute('UPDATE jobs SET requests=?,tokens=? WHERE id=?', (requests, tokens, job['id']))
 
                 except ModelUnavailable as exc:
                     db.failure(doc['id'], number, 'model_access', str(exc))

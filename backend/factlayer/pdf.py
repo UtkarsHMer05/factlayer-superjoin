@@ -71,9 +71,9 @@ def page_units(page, doc_id, number):
         # Bound units at line boundaries without dropping any source characters.
         start = 0
         while start < len(text):
-            end = min(start + 10000, len(text))
+            end = min(start + 3500, len(text))
             if end < len(text):
-                boundary = text.rfind('\n', start + 4000, end)
+                boundary = text.rfind('\n', start + 1000, end)
                 if boundary > start:
                     end = boundary + 1
             segment = text[start:end]

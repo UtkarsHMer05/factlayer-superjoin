@@ -21,4 +21,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-PIPELINE_VERSION = 'layout-3.claims-3.verify-2.compare-2'
+PIPELINE_VERSION = 'layout-4.claims-4.verify-3.compare-2'
