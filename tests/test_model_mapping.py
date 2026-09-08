@@ -1,6 +1,14 @@
 """Compact model-output mapping is deterministic: parse values before any claim is grounded."""
+import pytest
+
+from backend.factlayer import model
 from backend.factlayer.config import settings
-from backend.factlayer.model import _map_claim, _parse_number, _remote_body
+from backend.factlayer.model import (
+    ModelUnavailable,
+    _map_claim,
+    _parse_number,
+    _remote_body,
+)
 
 
 def unit():
@@ -87,7 +95,17 @@ def test_map_claim_keeps_only_explicit_qualifiers():
 
 def test_remote_request_uses_documented_top_level_thinking_control(monkeypatch):
     monkeypatch.setattr(settings, 'model', 'z-ai/glm-5.3-free')
+    monkeypatch.setattr(settings, 'reasoning_effort', 'low')
     body = _remote_body('system', {'source': 'untrusted source'})
-    assert body['thinking'] == {'type': 'disabled'}
+    assert body['thinking'] == {'type': 'enabled'}
+    assert body['reasoning_effort'] == 'low'
+    assert body['response_format'] == {'type': 'json_object'}
     assert 'chat_template_kwargs' not in body
     assert body['stream'] is True
+
+
+def test_empty_model_response_does_not_retry_and_spend_more_quota(monkeypatch):
+    monkeypatch.setattr(model, '_request', lambda *_: ('', 0))
+
+    with pytest.raises(ModelUnavailable, match='no final JSON content'):
+        model.chat_json('system', {'source': 'text'})

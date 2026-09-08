@@ -92,11 +92,12 @@ def _remote_body(system, payload):
         'temperature': 0,
         'stream': True,
         'max_tokens': settings.max_output_tokens,
-        # TokenRouter forwards OpenAI-compatible fields. GLM's documented control
-        # belongs at the top level; chat_template_kwargs is provider-specific and
-        # was ignored by this gateway, leaving extraction requests to think until
-        # their entire output budget was consumed.
-        'thinking': {'type': 'disabled'},
+        # GLM-5.3 only supports enabled thinking. Keep it at its lowest documented
+        # effort and ask the provider for a JSON object instead of relying only on
+        # prompt wording to obtain parseable extraction results.
+        'thinking': {'type': 'enabled'},
+        'reasoning_effort': settings.reasoning_effort,
+        'response_format': {'type': 'json_object'},
         'messages': [
             {'role': 'system', 'content': system},
             {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)},
@@ -159,6 +160,11 @@ def chat_json(system, payload):
         try:
             logging.getLogger(__name__).info('Model HTTP attempt %s for job %s', attempt + 1, job_context.get() or 'standalone')
             content, tokens = _request(system, payload)
+            if not content:
+                raise ModelUnavailable(
+                    'Model returned no final JSON content before its output budget. '
+                    'Increase FACT_MAX_OUTPUT_TOKENS before resuming this job.'
+                )
             data = json.loads(content)
             return data, {'tokens': tokens, 'duration': time.monotonic() - started, 'attempts': attempt + 1}
         except ModelUnavailable:

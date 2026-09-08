@@ -4,7 +4,7 @@
 
 A PDF Fact Knowledge Layer for the Superjoin assignment: upload documents, inspect extracted assertions at their source locations, and compare evidence with explicit uncertainty.
 
-**Status: working local prototype; not submission-ready.** Native setup, the React build, and 51 automated tests pass. All six starter PDFs (511 pages) have been parsed. Actual saved pilot results contain 52 accepted and 114 quarantined claims, plus two current deterministic relationship results recomputed from those unchanged, evidence-backed claims. The live TokenRouter adapter now uses GLM's documented top-level thinking control and fails fast while preserving parsed evidence. A fresh bounded smoke test on September 8, 2026 reached the configured model but received HTTP 429 (provider rate limit), so the fresh pilot, four corpus demonstrations, public deployment, and final video remain incomplete. See [CONTINUATION.md](CONTINUATION.md).
+**Status: working local prototype; not submission-ready.** Native setup, the React build, and 52 automated tests pass. All six starter PDFs (511 pages) have been parsed. Actual saved pilot results contain 52 accepted and 114 quarantined claims, plus two current deterministic relationship results recomputed from those unchanged, evidence-backed claims. The live TokenRouter adapter uses GLM-5.3's documented request format and fails safely while preserving parsed evidence. Recent bounded checks reached the configured model, but the fresh pilot, four corpus demonstrations, public deployment, and final video remain incomplete. See [CONTINUATION.md](CONTINUATION.md).
 
 ## Setup and Run Instructions
 
@@ -25,7 +25,7 @@ If the port is already in use, FactLayer is already running there; open it in th
 PORT=8020 FACT_DATA_DIR=data/qa-saved FACT_SAMPLE_MODE=true uv run python -m scripts.dev
 ```
 
-The requested provider is `https://api.tokenrouter.com/v1`, model `z-ai/glm-5.3-free`. A nonempty `FACT_API_KEY` selects the OpenAI-compatible adapter. The adapter sends `thinking: {"type":"disabled"}` at the documented top level so small structured extraction calls do not spend their complete output budget on hidden reasoning. It uses a bounded streaming idle timeout and records HTTP 429 as a resumable provider-rate-limit failure; it never switches models silently. The model's [official API reference](https://docs.z.ai/api-reference/llm/chat-completion) documents this thinking control. The current provider quota must reset before a fresh full-run validation is possible.
+The requested provider is `https://api.tokenrouter.com/v1`, model `z-ai/glm-5.3-free`. A nonempty `FACT_API_KEY` selects the OpenAI-compatible adapter. For GLM-5.3 it sends the supported top-level `thinking: {"type":"enabled"}`, low reasoning effort, and `response_format: {"type":"json_object"}`. It uses a bounded streaming idle timeout and records provider failures as resumable errors; it never switches models silently. The model's [official API reference](https://docs.z.ai/api-reference/llm/chat-completion) documents these controls. A full-run validation remains necessary before treating extraction quality as proven.
 
 For optional Ollama use, clear `FACT_API_KEY` and set `FACT_MODEL` and `FACT_MODEL_URL` to an accessible Ollama model/base URL. The archived pilot used `gpt-oss:120b-cloud`; it is not represented as a TokenRouter result.
 

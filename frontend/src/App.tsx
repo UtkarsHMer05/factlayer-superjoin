@@ -9,7 +9,7 @@ async function request(path:string, init?:RequestInit) {
   if(!r.ok){let message=`Request failed (${r.status})`;try{const d=await r.json();message=typeof d.detail==='string'?d.detail:JSON.stringify(d.detail)}catch{}throw new Error(message)}
   return r.json();
 }
-function Badge({label}:{label:string}){return <span className={`badge ${label}`}>{names[label]||label.replaceAll('_',' ')}</span>}
+function Badge({label}:{label?: string}){const safeLabel=label||'unknown';return <span className={`badge ${safeLabel}`}>{names[safeLabel]||safeLabel.replaceAll('_',' ')}</span>}
 function valueText(c:Obj){const v=c.value;return v?`${v.raw}${v.unit&& !v.raw.includes(v.unit)?` ${v.unit}`:''}${v.scale&&v.scale!=='one'?` · ${v.scale}`:''}`:'—'}
 
 export default function App(){
@@ -36,7 +36,7 @@ export default function App(){
     },150);
     return()=>clearTimeout(t);
   },[cid,view,query,filter,offset,tick]);
-  function navigate(v:View){setView(v);setOffset(0);setFilter('');setQuery('');setDetail(null);setSource(null)}
+  function navigate(v:View){setView(v);setOffset(0);setFilter('');setQuery('');setItems([]);setTotal(0);setLoading(true);setDetail(null);setSource(null)}
   async function create(){if(!newName.trim())return;try{const c=await request('/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName.trim()})});setCid(c.id);setTick(x=>x+1);setAdding(false);setNewName('')}catch(e){setError((e as Error).message)}}
   async function upload(files:FileList|null){if(!files||!cid)return;setBusy(true);setError('');try{for(const file of Array.from(files)){const body=new FormData();body.append('file',file);await request(`/collections/${cid}/documents`,{method:'POST',body})}setTick(x=>x+1);navigate('documents')}catch(e){setError((e as Error).message)}finally{setBusy(false);if(fileRef.current)fileRef.current.value=''}}
   async function inspect(item:Obj){try{const d=await request(`/${view==='relationships'?'relationships':'facts'}/${item.id}`);setDetail(d);setSource(null)}catch(e){setError((e as Error).message)}}
@@ -46,7 +46,7 @@ export default function App(){
   return <div className="app">
     <aside className="sidebar">
       <a className="brand" href="/" aria-label="FactLayer home"><Layers size={26}/><span>FactLayer<span className="brand-dot">.</span></span></a>
-      <div className="collection-control"><label htmlFor="collection">Knowledge collection</label><select id="collection" value={cid} onChange={e=>{setCid(e.target.value);setDetail(null);setSource(null);setOffset(0)}}><option value="" disabled>Select a collection</option>{collections.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><button className="quiet add-collection" onClick={()=>setAdding(!adding)}><Plus size={15}/>New collection</button>
+      <div className="collection-control"><label htmlFor="collection">Knowledge collection</label><select id="collection" value={cid} onChange={e=>{setCid(e.target.value);setItems([]);setTotal(0);setLoading(true);setDetail(null);setSource(null);setOffset(0)}}><option value="" disabled>Select a collection</option>{collections.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><button className="quiet add-collection" onClick={()=>setAdding(!adding)}><Plus size={15}/>New collection</button>
       {adding&&<form className="create-form" onSubmit={e=>{e.preventDefault();create()}}><label className="sr-only" htmlFor="new-name">Collection name</label><input autoFocus id="new-name" value={newName} maxLength={100} onChange={e=>setNewName(e.target.value)} placeholder="Collection name"/><button className="icon-button" aria-label="Create collection" disabled={!newName.trim()}><Check size={17}/></button></form>}</div>
       <nav aria-label="Main navigation">{([['facts',ScanText,'Facts',active?.facts],['relationships',Link2,'Relationships',active?.relationships],['documents',FileText,'Documents',active?.documents],['failures',AlertTriangle,'Failures & coverage',null]] as const).map(([v,Icon,title,count])=><button key={v} className={view===v?'nav active':'nav'} onClick={()=>navigate(v)}><Icon size={18}/><span>{title}</span>{count!=null&&<small>{count}</small>}</button>)}</nav>
       <div className="sidebar-note"><div className="status-dot"/>Evidence workspace<p>Claims stay connected to their original evidence.</p><span>{health.mode==='sample'?'Saved results':health.model||'Connecting…'}</span></div>
