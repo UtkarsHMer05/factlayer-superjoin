@@ -18,6 +18,5 @@ artifacts/
 output/playwright/
 .playwright-cli/
 tmp/
-public/
 *.zip
 superjoin-vit-2026-assignment.pdf

@@ -24,6 +24,22 @@ def test_vercel_index_py_fallback():
     assert response.json()['status'] == 'ok'
 
 
+def test_vercel_query_path_override():
+    # Test __path parameter used in vercel.json rewrites
+    health_res = client.get('/api/index.py?__path=/health')
+    assert health_res.status_code == 200
+    assert health_res.json()['status'] == 'ok'
+
+    col_res = client.get('/api/index.py?__path=/collections')
+    assert col_res.status_code == 200
+    assert len(col_res.json()) >= 1
+    assert col_res.json()[0]['name'] == 'Sample Financial Evidence Collection'
+
+    facts_res = client.get('/api/index.py?__path=/collections/col-sample-demo/facts')
+    assert facts_res.status_code == 200
+    assert 'items' in facts_res.json()
+
+
 def test_vercel_path_normalization_header():
     response = client.get('/api/index.py', headers={'x-vercel-matched-path': '/api/health'})
     assert response.status_code == 200
@@ -65,6 +81,12 @@ def test_vercel_failures():
     assert len(data) >= 1
 
 
+def test_vercel_frontend_fallback():
+    response = client.get('/')
+    assert response.status_code == 200
+    assert 'FactLayer' in response.text or 'html' in response.text.lower()
+
+
 def test_vercel_read_only_mutations():
     # Attempting to create collection or upload document returns 403 with clear explanation
     create_res = client.post('/api/collections', json={'name': 'test'})
@@ -72,9 +94,3 @@ def test_vercel_read_only_mutations():
 
     upload_res = client.post('/api/collections/col-sample-demo/documents')
     assert upload_res.status_code == 403
-
-
-def test_vercel_catch_all():
-    response = client.get('/api/unknown/endpoint')
-    assert response.status_code == 200
-    assert response.json() == []

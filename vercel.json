@@ -1,24 +1,21 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm ci --prefix frontend && npm run build --prefix frontend",
-  "outputDirectory": "frontend/dist",
+  "buildCommand": "VITE_OUT_DIR=../public npm ci --prefix frontend && VITE_OUT_DIR=../public npm run build --prefix frontend",
+  "outputDirectory": "public",
   "functions": {
     "api/index.py": {
+      "includeFiles": "public/**",
       "maxDuration": 60
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?__path=/$1"
     },
     {
       "source": "/api",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/((?!api/|assets/).*)",
-      "destination": "/index.html"
+      "destination": "/api/index.py?__path=/health"
     }
   ]
 }

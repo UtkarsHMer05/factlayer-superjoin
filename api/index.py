@@ -1,7 +1,10 @@
 """Lightweight Vercel entrypoint for the frontend/API shell."""
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title='FactLayer', version='0.1.0')
 
@@ -9,35 +12,25 @@ app = FastAPI(title='FactLayer', version='0.1.0')
 @app.middleware('http')
 async def normalize_vercel_path(request: Request, call_next):
     """Normalize paths when Vercel rewrites requests to /api/index.py."""
-    current_path = request.scope.get('path', '')
-    if current_path in ('/api/index.py', '/api/index', '/api'):
-        matched = (
-            request.headers.get('x-vercel-matched-path')
-            or request.headers.get('x-matched-path')
-            or request.headers.get('x-forwarded-url')
-        )
-        if matched and matched not in ('/api/index.py', '/api/index'):
-            clean_path = matched.split('?')[0]
-            request.scope['path'] = clean_path
+    # 1. Check explicit __path query parameter passed by Vercel rewrite
+    path_override = request.query_params.get('__path')
+    if path_override:
+        clean = path_override if path_override.startswith('/') else '/' + path_override
+        request.scope['path'] = clean
+    else:
+        # 2. Check Vercel routing headers
+        current_path = request.scope.get('path', '')
+        if current_path in ('/api/index.py', '/api/index', '/api'):
+            matched = (
+                request.headers.get('x-vercel-matched-path')
+                or request.headers.get('x-matched-path')
+                or request.headers.get('x-forwarded-url')
+            )
+            if matched and matched not in ('/api/index.py', '/api/index'):
+                clean_path = matched.split('?')[0]
+                request.scope['path'] = clean_path
 
     return await call_next(request)
-
-
-# -----------------------------------------------------------------------------
-# Health Check
-# -----------------------------------------------------------------------------
-@app.get('/health')
-@app.get('/api/health')
-@app.get('/api/index.py')
-def health():
-    return {
-        'status': 'ok',
-        'model': 'sample-pipeline',
-        'pipeline_version': '0.1.0',
-        'mode': 'sample',
-        'read_only': True,
-        'notice': 'The Vercel deployment is a lightweight read-only demonstration shell. Deploy with Docker for local PDF processing and durable worker execution.',
-    }
 
 
 # -----------------------------------------------------------------------------
@@ -187,6 +180,23 @@ SAMPLE_FAILURES = [
 
 
 # -----------------------------------------------------------------------------
+# Health Check
+# -----------------------------------------------------------------------------
+@app.get('/health')
+@app.get('/api/health')
+@app.get('/api/index.py')
+def health():
+    return {
+        'status': 'ok',
+        'model': 'sample-pipeline',
+        'pipeline_version': '0.1.0',
+        'mode': 'sample',
+        'read_only': True,
+        'notice': 'The Vercel deployment is a lightweight read-only demonstration shell. Deploy with Docker for local PDF processing and durable worker execution.',
+    }
+
+
+# -----------------------------------------------------------------------------
 # Collections API
 # -----------------------------------------------------------------------------
 @app.get('/collections')
@@ -322,9 +332,39 @@ def get_document_page_image(doc_id: str, page: int):
 
 
 # -----------------------------------------------------------------------------
+# Static Frontend Serving (Fallback if CDN routes to function)
+# -----------------------------------------------------------------------------
+def _resolve_static_root() -> Path | None:
+    candidates = [
+        Path(__file__).resolve().parent.parent / 'public',
+        Path(__file__).resolve().parent / 'public',
+        Path('/var/task/public'),
+        Path(__file__).resolve().parent.parent / 'frontend' / 'dist',
+    ]
+    for c in candidates:
+        if (c / 'index.html').is_file():
+            return c
+    return None
+
+
+_static_dir = _resolve_static_root()
+if _static_dir and (_static_dir / 'assets').is_dir():
+    app.mount('/assets', StaticFiles(directory=str(_static_dir / 'assets')), name='assets')
+
+
+@app.get('/')
+@app.get('/index.html')
+def frontend():
+    if _static_dir and (_static_dir / 'index.html').is_file():
+        return FileResponse(_static_dir / 'index.html')
+    return Response(content='<!doctype html><html><body><div id="root">Loading FactLayer...</div></body></html>', media_type='text/html')
+
+
+# -----------------------------------------------------------------------------
 # Catch-all API Fallback
 # -----------------------------------------------------------------------------
 @app.api_route('/{path:path}', methods=['GET', 'POST', 'PUT', 'DELETE'])
-@app.api_route('/api/{path:path}', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def catch_all(path: str):
+    if _static_dir and (_static_dir / 'index.html').is_file() and not path.startswith('api'):
+        return FileResponse(_static_dir / 'index.html')
     return []
