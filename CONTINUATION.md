@@ -34,7 +34,7 @@ There is no authenticated hosting destination yet. An async question asked wheth
 - Current primary DB: `data/knowledge.sqlite`; all 166 older claims are superseded by explicit v3 reprocess, with no fresh accepted claims yet. Do not mistake the empty current accepted set for data loss. Preserved exports provide old usable results.
 - Original sources are in ignored `starter-datasets.zip`, `data/pdfs/`, and original assignment PDF. `data/pilot-v1.sqlite` preserves early failures. Do not overwrite backups or fabricate accepted claims.
 - Pipeline version: `layout-3.claims-3.verify-2.compare-2`. Bump it before another prompt/semantic change so caches do not hide changes.
-- `uv` 0.12.5; `.venv` Python 3.13.15. Node/npm are installed. `gh` authenticates as UtkarsHMer05 with repository scopes. No GitHub remote exists yet. No video or form submission.
+- `uv` 0.12.5; `.venv` Python 3.13.15. Node/npm are installed. `gh` authenticates as UtkarsHMer05 with repository scopes. GitHub remote: https://github.com/UtkarsHMer05/factlayer-superjoin (public; README explicitly labels the prototype incomplete). No video or form submission.
 - Another unrelated service had occupied port 8000. Do not kill it.
 
 ## Next steps, in order
@@ -51,7 +51,7 @@ There is no authenticated hosting destination yet. An async question asked wheth
 6. Broaden to both complete collections only after pilot quality improves and budget is feasible. Report parsing and semantic coverage separately. Never claim all511 pages semantically extracted based on parsing counts. Export refreshed real outputs and evaluate successes plus failures, not just counts.
 7. Finish mobile/keyboard/live-upload QA, including interrupted jobs and errors. Desktop saved evidence was verified; a complete mobile pass was not. Record a genuine <=180-second demo with real upload and all four cases. Time skips are allowed if labeled. Do not substitute a scripted animation for successful processing.
 8. Retry Docker build when registry connectivity works. Test container health, upload, worker progress, and volume survival across restart. Use DEPLOYMENT.md. Obtain the already-requested hosting destination if not provided; prepare everything else before asking for account access. Keep provider key in host secrets. This is currently a shared workspace; add practical admission/rate limits and host access control for public judges, or explicitly constrain access to public docs.
-9. Secret-scan current files AND git history. Create the GitHub repository using the authenticated account once artifacts are coherent and truthfully documented. Publish only code/public sample excerpts, not .env/data/archive. Update README with actual repository/deployment/video links only after verifying them. No final hiring-form submission has been authorized.
+9. Secret-scan current files AND git history. Push subsequent verified changes to the existing GitHub repository using the authenticated account. Publish only code/public sample excerpts, not .env/data/archive. Update README with actual repository/deployment/video links only after verifying them. No final hiring-form submission has been authorized.
 10. End with exact completed artifacts, checks and remaining dependencies. The previous agent stopped near Codex quota as requested, not because the assignment was finished.
 
 ## Important implementation caveats

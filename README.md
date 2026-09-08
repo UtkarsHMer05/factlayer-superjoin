@@ -1,5 +1,7 @@
 # FactLayer
 
+[GitHub repository](https://github.com/UtkarsHMer05/factlayer-superjoin) · [Continuation handoff](CONTINUATION.md)
+
 A PDF Fact Knowledge Layer for the Superjoin assignment: upload documents, inspect extracted assertions at their source locations, and compare evidence with explicit uncertainty.
 
 **Status: working local prototype; not submission-ready.** Native setup, the React build, and 36 automated tests pass. All six starter PDFs (511 pages) have been parsed. Actual saved pilot results contain 52 accepted and 114 quarantined claims. The fresh TokenRouter pilot, the four required demonstration cases, public deployment, and final video remain incomplete. See [CONTINUATION.md](CONTINUATION.md).

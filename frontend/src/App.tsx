@@ -81,7 +81,8 @@ function SourcePanel({source,close,navigate}:{source:Obj,close:()=>void,navigate
   const [zoom,setZoom]=useState(100);
   const dialog=useRef<HTMLDivElement>(null);
   useEffect(()=>setZoom(100),[source.docId,source.page]);
-  useEffect(()=>{const previous=document.activeElement as HTMLElement;return()=>previous?.focus()},[]);
+  const previousFocus=useRef(document.activeElement as HTMLElement);
+  useEffect(()=>()=>previousFocus.current?.focus(),[]);
   function keyboard(e:React.KeyboardEvent){
     if(e.key==='Escape')close();
     if(e.key!=='Tab')return;
